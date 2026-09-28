@@ -39,6 +39,23 @@ Touch-Kamera, Kreaturen wandern per Navigation.
 ## M5 – Journal und erste Aufgabe
 Markieren, eigene Gruppen, Notizen; Aufgaben als JSON mit Rollen; Simulation, Abspielen,
 Auswertung mit Hinweisen ohne Lösung; neue Gruppenmitglieder inklusive Doppelgänger-Arten.
+**Spielstand** (siehe unten) wird hier eingeführt, weil das Journal ihn als Erstes braucht.
+
+## Spielstand (Designregeln, gelten ab sofort)
+- Speicherort: lokal, eine versionierte JSON-Datei unter `user://save/` (auf Android im
+  privaten App-Speicher, übersteht Neustarts). Kein Server nötig; Cloud-Sync (z. B. Google Play
+  Saved Games) ließe sich später auf dieselbe Datei aufsetzen.
+- Gespeichert wird automatisch beim Pausieren der App (`NOTIFICATION_APPLICATION_PAUSED`),
+  beim Beenden und nach jeder Aufgabe – Android beendet Hintergrund-Apps ohne Vorwarnung.
+- **Der Spielstand speichert Daten, nicht nur Seeds:** die verwendete Taxonomie als
+  exportiertes JSON und die Genome der Gruppenmitglieder. Grund: Ändert sich später der
+  Generator- oder Vererbungscode, würde derselbe Seed andere Kreaturen erzeugen – die
+  Kreaturen des Spielers dürfen sich aber nie verändern.
+- IDs sind stabil: Taxon-IDs und Kreatur-IDs (`art#nummer`) werden nie umbenannt; sie verbinden
+  Journal-Notizen und Kreaturen.
+- Inhalt (Skizze): Formatversion, Taxonomie, Gruppe (ID, Genom, Geschlecht, Alter, Position),
+  Journal (Markierungen, eigene Gruppen, Notizen), erledigte Aufgaben, freigeschaltete
+  Kreaturen, Tageszeit/Wetter, Einstellungen.
 
 ## M6 – Android
 Export-Preset, Profiling auf dem Gerät (Ziel: 15–20 Kreaturen bei 60 FPS), LOD-Feintuning.
