@@ -1,0 +1,63 @@
+{
+  "format": "creature_generator_preset/1",
+  "notes": "Regler für TaxonomyGenerator. Felder siehe docs/taxonomy_format.md, Abschnitt 'Generator-Presets'.",
+  "classes": 2,
+  "children_per_rank": {
+    "order": [1, 3],
+    "family": [1, 2],
+    "genus": [1, 2],
+    "species": [1, 3]
+  },
+  "similarity": {
+    "spread": { "class": 1.0, "order": 1.0, "family": 1.0, "genus": 1.0, "species": 1.0, "individual": 1.0 }
+  },
+  "juvenile": {
+    "chance": 1.0,
+    "scale": {
+      "body_length": [0.5, 0.75],
+      "leg_length": [0.6, 0.85],
+      "horn_length": [0.0, 0.4],
+      "tail_length": [0.5, 0.9],
+      "crest_height": [0.0, 0.5]
+    },
+    "shift": {
+      "head_size": [0.03, 0.1],
+      "pattern_contrast": [-0.4, 0.0]
+    }
+  },
+  "sexual": {
+    "chance": 0.5,
+    "genes_per_taxon": [1, 3],
+    "male": {
+      "shift": {
+        "horn_length": [0.1, 0.35],
+        "crest_height": [0.05, 0.25],
+        "saturation": [0.1, 0.35],
+        "body_width": [0.05, 0.2],
+        "antenna_length": [0.1, 0.3]
+      }
+    },
+    "female": {
+      "shift": {
+        "body_length": [0.05, 0.25],
+        "brightness": [-0.2, -0.05]
+      }
+    }
+  },
+  "convergence": {
+    "pairs": 1,
+    "strength": [0.7, 0.9],
+    "groups": ["proportion", "appendage", "color", "pattern"],
+    "require_matching_bodyplan": true
+  },
+  "names": {
+    "syllables": ["ka", "lo", "mi", "ra", "sti", "vu", "xe", "to", "pha", "nel", "dor", "qui", "sa", "ben", "tu", "gri", "ol", "ze", "ma", "ru", "fen", "cor", "thal", "ly", "bri", "nox"],
+    "suffix": {
+      "class": "opoda",
+      "order": "ida",
+      "family": "idae",
+      "genus": ["us", "a", "ix", "on", "ella"]
+    },
+    "epithets": ["silvestris", "fluvialis", "nocturnus", "minor", "major", "robustus", "gracilis", "maculatus", "striatus", "saxatilis", "agilis", "umbrosus", "palustris", "cornutus", "rufus", "viridis", "fallax", "lentus", "celer", "obscurus"]
+  }
+}
