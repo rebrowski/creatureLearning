@@ -25,7 +25,7 @@ func utility(s: Dictionary) -> float:
 
 func start() -> void:
 	_skill = skill()
-	outcome = "success" if _skill >= 0.4 else "fail"
+	outcome = decide(_skill >= 0.4)
 	brain.mover.stop()
 	creature.velocity = Vector3.ZERO
 	var plan := creature.plan

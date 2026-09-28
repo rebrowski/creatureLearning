@@ -33,7 +33,7 @@ func start() -> void:
 	creature.locomotion.pose_pitch = -0.15
 	_state = SEARCH
 	_tree = brain.context.nearest_fruit_tree(creature.global_position, 25.0)
-	outcome = "success" if _skill >= 0.5 and _tree != null else "fail"
+	outcome = decide(_skill >= 0.5) if _tree != null else "fail"
 
 
 func update(delta: float) -> bool:

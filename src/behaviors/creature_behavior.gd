@@ -18,6 +18,9 @@ var elapsed := 0.0
 var outcome := ""
 ## Anmarsch aufgegeben (Ziel nicht erreichbar).
 var timed_out := false
+## Vorgaben beim Erzwingen (Aufgaben): "forced_outcome" ("success"/"fail") und
+## verhaltensspezifische Ziele (z. B. "tree", "crossing"). Leer bei freier Wahl.
+var params: Dictionary = {}
 
 
 func setup(p_brain: BehaviorBrain) -> void:
@@ -82,6 +85,14 @@ func approach_done(delta: float, limit: float, near := 2.5) -> bool:
 			return true
 		timed_out = true
 	return false
+
+
+## Ergebnis: vorgegeben (Aufgabe) oder aus dem Können.
+func decide(ok_by_skill: bool) -> String:
+	var forced := str(params.get("forced_outcome", ""))
+	if forced != "":
+		return forced
+	return "success" if ok_by_skill else "fail"
 
 
 func forward() -> Vector3:

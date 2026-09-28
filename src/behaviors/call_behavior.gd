@@ -23,7 +23,7 @@ func utility(s: Dictionary) -> float:
 
 func start() -> void:
 	_skill = skill()
-	outcome = "success" if _skill >= 0.45 else "fail"
+	outcome = decide(_skill >= 0.45)
 	brain.mover.stop()
 	creature.locomotion.head_pitch = 0.45
 	creature.locomotion.pose_pitch = 0.15

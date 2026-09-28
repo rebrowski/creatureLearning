@@ -6,6 +6,7 @@ var world: Node3D
 
 
 func before_all() -> void:
+	get_tree().root.set_meta("forest_no_save", true)
 	world = (load("res://scenes/world/forest.tscn") as PackedScene).instantiate()
 	add_child(world)
 	for i in 120:
@@ -102,6 +103,10 @@ func test_swimming_crosses_or_turns_back() -> void:
 
 
 func test_dig_and_call_outcomes_follow_ability() -> void:
+	# auf weichen Boden (Lichtung) stellen – auf Fels kann niemand graben
+	var digger: Creature = world.creatures[_index_by_ability("dig", true)]
+	var l: ForestLayout = world.terrain.layout
+	digger.global_position = Vector3(l.clearing_pos.x, l.height_at(l.clearing_pos.x, l.clearing_pos.y), l.clearing_pos.y)
 	assert_eq(_run(_index_by_ability("dig", true), "dig").outcome, "success")
 	assert_eq(_run(_index_by_ability("dig", false), "dig").outcome, "fail")
 	assert_eq(_run(_index_by_ability("noise", false), "call").outcome, "fail")

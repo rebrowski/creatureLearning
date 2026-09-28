@@ -38,7 +38,7 @@ func utility(s: Dictionary) -> float:
 
 
 func start() -> void:
-	_tree = brain.context.nearest_fruit_tree(creature.global_position, 16.0)
+	_tree = params.get("tree", brain.context.nearest_fruit_tree(creature.global_position, 16.0))
 	if _tree == null:
 		_state = DETACH
 		return
@@ -101,7 +101,7 @@ func update(delta: float) -> bool:
 
 func _attach() -> void:
 	var a := skill({"zone": "tree", "wetness": brain.sample_here().get("wetness", 0.0)})
-	outcome = "success" if a >= 0.45 else "fail"
+	outcome = decide(a >= 0.45)
 	_h0 = creature.plan.body_length * 0.5 + creature.plan.head_radius
 	_target_h = maxf(_tree.fruit_height - creature.plan.body_length * 0.3, _h0 + 0.5) if outcome == "success" \
 			else clampf(_h0 + 0.3 + a * 2.0, _h0 + 0.3, _tree.fruit_height * 0.5)

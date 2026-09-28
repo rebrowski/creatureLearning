@@ -23,7 +23,7 @@ func utility(s: Dictionary) -> float:
 
 func start() -> void:
 	_skill = skill()
-	outcome = "success" if _skill >= 0.5 else "fail"
+	outcome = decide(_skill >= 0.5)
 	_target = brain.neighbor_within(3.5)
 	brain.mover.stop()
 

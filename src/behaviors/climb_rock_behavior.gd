@@ -82,7 +82,7 @@ func update(delta: float) -> bool:
 func _begin_climb() -> void:
 	var a := skill({"zone": "rock", "wetness": brain.sample_here().get("wetness", 0.0)})
 	var threshold := 0.35 if _rock.climbable else 0.55
-	outcome = "success" if a >= threshold else "fail"
+	outcome = decide(a >= threshold)
 	_max_t = 1.0 if outcome == "success" else clampf(a / threshold, 0.15, 0.9) * 0.7
 	_speed = 0.12 + 0.4 * a
 	_start = creature.global_position

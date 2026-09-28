@@ -38,7 +38,7 @@ func start() -> void:
 	var l := brain.layout()
 	var p := creature.global_position
 	var info := l.stream_info(p.x, p.z)
-	var c: Vector2 = info.closest
+	var c: Vector2 = params.get("crossing", info.closest)
 	var side := Vector2(p.x - c.x, p.z - c.y).normalized()
 	if side.length() < 0.5:
 		side = Vector2(0, 1)
@@ -78,7 +78,7 @@ func _enter() -> void:
 	var plan := creature.plan
 	_wade = plan.leg_count > 0 and plan.leg_reach() * 0.85 > depth + 0.05
 	_skill = skill(brain.context.sample(mid))
-	outcome = "success" if _wade or _skill >= 0.3 else "fail"
+	outcome = decide(_wade or _skill >= 0.3)
 	_turn_at = 1.0 if outcome == "success" else 0.3 + _skill
 	_speed = plan.move_speed * (0.7 if _wade else 0.35 + 0.55 * _skill)
 	label = "watet durch den Bach" if _wade else "schwimmt"

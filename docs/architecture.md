@@ -17,7 +17,7 @@ Abhängigkeiten zeigen nur nach unten. Die beiden unteren Schichten sind **node-
 (`RefCounted`), dadurch headless testbar und später im Aufgaben-Simulator ohne Szene nutzbar.
 
 ```
-tasks / journal / progression         (M5)  Spiellogik
+game / tasks / journal / ui           (M5)  Spielstand, Aufgaben, Journal, Oberfläche
 abilities + behaviors                 (M4)  Fähigkeiten, sichtbares Verhalten, Trennschärfe
 world: terrain, weather, context, nav (M3)  Waldwelt, Tageszeit, Wetter, Zonen
 creature - mesh - locomotion - camera (M2)  Darstellung; kennt nur Genome
@@ -26,7 +26,7 @@ genome - genome_schema - distance     (M1)  Gen-Definitionen, Werte, Distanz
 core                                  (M1)  Ränge, Seeds, JSON
 ```
 
-## Module (Stand M4)
+## Module (Stand M5)
 
 | Datei | Aufgabe |
 |---|---|
@@ -61,7 +61,11 @@ core                                  (M1)  Ränge, Seeds, JSON
 | `src/behaviors/behavior_brain.gd`, `*_behavior.gd` | Nutzenbasierte Auswahl und zehn sichtbare Verhaltensweisen. |
 | `src/behaviors/nav_mover.gd`, `behavior_effects.gd`, `carry_item.gd` | Wegfolgen mit Abstandhalten, Effekte (Erde, Rufwellen, Löcher …), tragbare Steine. |
 | `src/taxonomy/species_diagnostics.gd` | Trennschärfe einzelner Gene zwischen zwei Arten (Designwerkzeug). |
-| `src/world/forest_world.gd` | Wurzel der Waldszene, Startgruppe, HUD. |
+| `src/world/forest_world.gd` | Wurzel der Waldszene: Spielstand, Gruppe, Beobachtungsprotokoll, Aufgaben, HUD. |
+| `src/game/game_state.gd`, `group_member.gd` | Spielstand (JSON, mit Genomen), Gruppe, Rekrutierung. |
+| `src/journal/journal.gd` | Markierungen, eigene Gruppen, Notizen, Einschätzungen, Protokoll. |
+| `src/tasks/task_def.gd`, `task_catalog.gd`, `task_simulator.gd`, `task_player.gd` | Aufgaben aus JSON, Bewertung, Wiedergabe mit den echten Kreaturen. |
+| `src/ui/*` | Kreaturen-Karte, Journal, Aufgabenwahl, Auswertung (im Code gebaut, touchfreundlich). |
 | `tools/build_forest.gd` | Erzeugt `forest.tscn` inkl. Spatial-Gardener-Vegetation. |
 | `src/debug/*` | Menü, Viewer, 2D-Glyphen, Vergleich, Kreaturen-Labor, Menü-Knopf (Autoload `DebugNav`). |
 | `tools/screenshot.gd` | Szene rendern und als PNG speichern (für visuelle Prüfung). |
@@ -84,6 +88,7 @@ unsichtbare Gene aus demselben Schema – vererbt über denselben Mechanismus.
 ## Welt
 
 Details: [`world_format.md`](world_format.md), Vegetation: [`spatial_gardener.md`](spatial_gardener.md),
-Fähigkeiten und Verhalten: [`abilities_format.md`](abilities_format.md).
+Fähigkeiten und Verhalten: [`abilities_format.md`](abilities_format.md),
+Aufgaben, Journal, Spielstand: [`tasks_format.md`](tasks_format.md).
 Abweichung vom ursprünglichen Plan: Zonen werden analytisch aus dem Layout berechnet statt über
 Area3D-Knoten – schneller, testbar und ohne doppelte Datenhaltung.

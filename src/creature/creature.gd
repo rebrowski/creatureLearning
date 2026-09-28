@@ -33,6 +33,8 @@ var behavior_label := ""
 ## true = ein Verhalten setzt Position/Drehung selbst (Klettern, Schwimmen …);
 ## dann keine eigene Fortbewegung und keine Bodenhaftung.
 var scripted := false
+## Getragener Gegenstand (folgt Maul bzw. Rücken), null = nichts.
+var held_item: Node3D
 
 var desired_velocity := Vector3.ZERO
 var velocity := Vector3.ZERO
@@ -94,6 +96,12 @@ func _physics_process(delta: float) -> void:
 	_update_lod(delta)
 	if not scripted:
 		_move(delta)
+	if held_item != null:
+		if is_instance_valid(held_item):
+			held_item.global_position = hold_point(held_item.get("size") if held_item.get("size") != null else 0.2)
+			held_item.rotation.y = rotation.y
+		else:
+			held_item = null
 	match lod_level:
 		CreatureLOD.FULL:
 			locomotion.update(delta, global_transform, velocity, true)
@@ -137,6 +145,25 @@ func clear_behavior_pose() -> void:
 	locomotion.pose_roll = 0.0
 	locomotion.pose_scale = 1.0
 	locomotion.head_pitch = 0.0
+
+
+## Wo ein Gegenstand getragen wird: kleine im Maul, große auf dem Rücken.
+func hold_point(item_size: float) -> Vector3:
+	if item_size < plan.head_radius * 1.6:
+		return global_transform * (plan.head_center + Vector3(0.0, plan.body_center_y - item_size * 0.4, -plan.head_radius * 0.9))
+	return global_transform * Vector3(0.0, plan.body_center_y + plan.half_height * 0.85, 0.0)
+
+
+## Legt den getragenen Gegenstand vor sich auf den Boden.
+func drop_item() -> void:
+	if held_item == null or not is_instance_valid(held_item):
+		held_item = null
+		return
+	var s: float = held_item.get("size") if held_item.get("size") != null else 0.2
+	var p := global_transform * Vector3(0.0, 0.0, -(plan.body_length * 0.5 + s))
+	var y := _ground_height(p)
+	held_item.global_position = Vector3(p.x, y if not is_nan(y) else global_position.y, p.z)
+	held_item = null
 
 
 ## Bodenhöhe an einer Position (Raycast), NAN wenn kein Boden.

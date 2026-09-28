@@ -22,6 +22,7 @@ func _init() -> void:
 		push_error("Aufruf: -- <szene.tscn> <ausgabe.png> [frames] [aktion ...]")
 		quit(1)
 		return
+	root.set_meta("forest_no_save", true)  # Screenshots schreiben keinen Spielstand
 	var scene: PackedScene = load(args[0])
 	var node := scene.instantiate()
 	root.add_child(node)

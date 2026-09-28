@@ -47,8 +47,8 @@ LOD- und Schatten-Einstellungen pro Pflanze stehen in `tools/build_forest.gd` (`
   "members": [ { "species": "stelzus_fluvialis", "index": 0 }, ... ] }
 ```
 
-Jede Kreatur ist Art-ID + laufende Nummer (reproduzierbar aus der Taxonomie). Ab M5 kommt die
-Gruppe aus dem Spielstand (siehe `docs/roadmap.md`, Abschnitt Spielstand).
+Jede Kreatur ist Art-ID + laufende Nummer (reproduzierbar aus der Taxonomie). Gilt nur für ein
+neues Spiel; danach steht die Gruppe (mit Genomen) im Spielstand, siehe `docs/tasks_format.md`.
 
 ## Laufzeit-Komponenten (`scenes/world/forest.tscn`)
 

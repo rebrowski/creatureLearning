@@ -36,12 +36,12 @@ Touch-Kamera, Kreaturen wandern per Navigation.
      (beste Einzelregel in %), plus Tests für Designziele wie „Schwesterarten haben kein
      sichtbares Einzelmerkmal über 90 %“.
 
-## M5 – Journal und erste Aufgabe
+## M5 – Journal und erste Aufgabe ✅
 Markieren, eigene Gruppen, Notizen; Aufgaben als JSON mit Rollen; Simulation, Abspielen,
 Auswertung mit Hinweisen ohne Lösung; neue Gruppenmitglieder inklusive Doppelgänger-Arten.
 **Spielstand** (siehe unten) wird hier eingeführt, weil das Journal ihn als Erstes braucht.
 
-## Spielstand (Designregeln, gelten ab sofort)
+## Spielstand (umgesetzt in M5, siehe docs/tasks_format.md)
 - Speicherort: lokal, eine versionierte JSON-Datei unter `user://save/` (auf Android im
   privaten App-Speicher, übersteht Neustarts). Kein Server nötig; Cloud-Sync (z. B. Google Play
   Saved Games) ließe sich später auf dieselbe Datei aufsetzen.

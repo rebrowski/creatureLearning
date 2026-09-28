@@ -23,6 +23,8 @@ var behaviors: Array[CreatureBehavior] = []
 var current: CreatureBehavior
 ## Letzte Verhalten: [{id, outcome, time}] – Grundlage für Beobachtung (Journal, M5).
 var history: Array[Dictionary] = []
+## Pausiert (Aufgaben): kein eigenes neues Verhalten, nur erzwungene.
+var paused := false
 
 var _cooldowns: Dictionary = {}
 var _glow_timer := 0.0
@@ -92,18 +94,27 @@ func update(delta: float) -> void:
 		if current.update(delta) and current.elapsed < max_time(current.id):
 			return
 		_end_current()
+	if paused:
+		creature.desired_velocity = Vector3.ZERO
+		return
 	_choose()
 
 
-## Startet ein bestimmtes Verhalten (Debug, Tests). false = nicht möglich.
-func force(id: String) -> bool:
+## Startet ein bestimmtes Verhalten (Aufgaben, Debug, Tests). false = unbekannt.
+func force(id: String, p_params := {}) -> bool:
 	for b in behaviors:
 		if b.id == id:
 			if current != null:
 				_end_current()
-			_start(b)
+			_start(b, p_params)
 			return true
 	return false
+
+
+## Bricht das laufende Verhalten ab.
+func stop_current() -> void:
+	if current != null:
+		_end_current()
 
 
 func _choose() -> void:
@@ -124,8 +135,9 @@ func _choose() -> void:
 		_start(best)
 
 
-func _start(b: CreatureBehavior) -> void:
+func _start(b: CreatureBehavior, p_params := {}) -> void:
 	current = b
+	b.params = p_params
 	b.elapsed = 0.0
 	b.outcome = ""
 	b.timed_out = false

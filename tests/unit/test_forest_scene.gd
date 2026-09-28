@@ -6,6 +6,7 @@ var world: Node3D
 
 
 func before_all() -> void:
+	get_tree().root.set_meta("forest_no_save", true)
 	world = (load(SCENE) as PackedScene).instantiate()
 	add_child(world)
 	for i in 60:
@@ -82,7 +83,8 @@ func test_navigation_avoids_water() -> void:
 
 
 func test_start_group_spawned_on_land() -> void:
-	assert_eq(world.creatures.size(), 16)
+	var group: Dictionary = JsonLoader.read(GameState.GROUP_PATH).data
+	assert_eq(world.creatures.size(), group.members.size())
 	for c in world.creatures:
 		var zone: String = world.terrain.layout.zone_at(c.global_position.x, c.global_position.z)
 		assert_true(zone in ["clearing", "forest", "bank", "tree", "rock"], "%s steht in %s" % [c.name, zone])

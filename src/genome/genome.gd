@@ -62,6 +62,17 @@ func to_dict() -> Dictionary:
 	return d
 
 
+## Gegenstück zu to_dict(). Unbekannte Gene werden ignoriert, fehlende bekommen den Standardwert.
+static func from_dict(p_schema: GenomeSchema, d: Dictionary) -> Genome:
+	var g := p_schema.default_genome()
+	for gene in p_schema.genes:
+		if d.has(gene.id):
+			var v = gene.parse_value(d[gene.id])
+			if v != null:
+				g.values[gene.id] = v
+	return g
+
+
 func is_equal_approx_to(other: Genome, eps := 0.0001) -> bool:
 	for g in schema.genes:
 		if absf(float(get_value(g.id)) - float(other.get_value(g.id))) > eps:

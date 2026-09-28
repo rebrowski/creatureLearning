@@ -53,8 +53,8 @@ func update(delta: float) -> bool:
 			_timer -= delta
 			if _timer <= 0.0:
 				var a := skill()
-				if a >= _item.weight * 0.8:
-					outcome = "success"
+				outcome = decide(a >= _item.weight * 0.8)
+				if outcome == "success":
 					_speed = clampf(1.0 - (_item.weight - a * 0.5), 0.3, 1.0)
 					creature.locomotion.pose_pitch = -0.05
 					creature.locomotion.head_pitch = 0.0
@@ -63,7 +63,6 @@ func update(delta: float) -> bool:
 					brain.mover.go(brain.home + Vector3(cos(ang) * r, 0.0, sin(ang) * r))
 					_state = CARRY
 				else:
-					outcome = "fail"
 					_item_origin = _item.global_position
 					_timer = 2.5
 					_state = TUG
@@ -76,18 +75,9 @@ func update(delta: float) -> bool:
 				_item.global_position = _item_origin
 				return false
 		CARRY:
-			_item.global_position = _hold_point()
-			_item.rotation.y = creature.rotation.y
+			creature.held_item = _item
 			return not brain.mover.step(delta, _speed)
 	return true
-
-
-## Kleine Steine im Maul, große auf dem Rücken.
-func _hold_point() -> Vector3:
-	var plan := creature.plan
-	if _item.size < plan.head_radius * 1.6:
-		return creature.global_transform * (plan.head_center + Vector3(0.0, plan.body_center_y - _item.size * 0.4, -plan.head_radius * 0.9))
-	return creature.global_transform * Vector3(0.0, plan.body_center_y + plan.half_height * 0.85, 0.0)
 
 
 func _nearest_item(max_distance: float) -> CarryItem:
@@ -107,8 +97,6 @@ func _nearest_item(max_distance: float) -> CarryItem:
 func finish() -> void:
 	brain.mover.stop()
 	if _item != null and is_instance_valid(_item):
-		if _state == CARRY:
-			var p := creature.global_transform * Vector3(0.0, 0.0, -(creature.plan.body_length * 0.5 + _item.size))
-			var y := creature.ground_height_at(p)
-			_item.global_position = Vector3(p.x, y if not is_nan(y) else creature.global_position.y, p.z)
+		if creature.held_item == _item:
+			creature.drop_item()
 		_item.claimed_by = null

@@ -3,7 +3,7 @@
 Godot-4-Spiel für Android: Der Spieler lebt in einer Gruppe prozedural erzeugter Kreaturen, erschließt
 deren Art und Fähigkeiten durch Beobachtung und weist ihnen in kurzen Aufgaben passende Rollen zu.
 
-**Stand: Meilenstein 4** – Genom und Taxonomie (M1), prozedurale 3D-Kreaturen mit IK-Laufen (M2), Waldwelt mit Spatial Gardener, Tageszeit und Wetter (M3), Fähigkeiten und sichtbares Verhalten (M4).
+**Stand: Meilenstein 5** – Genom und Taxonomie (M1), prozedurale 3D-Kreaturen mit IK-Laufen (M2), Waldwelt mit Spatial Gardener, Tageszeit und Wetter (M3), Fähigkeiten und sichtbares Verhalten (M4), Journal, Spielstand und spielbare Aufgaben (M5).
 
 | Meilenstein | Inhalt | Status |
 |---|---|---|
@@ -11,8 +11,10 @@ deren Art und Fähigkeiten durch Beobachtung und weist ihnen in kurzen Aufgaben 
 | 2 | Prozedurales Mesh, IK-Laufen | ✅ |
 | 3 | Welt mit Spatial Gardener, Touch-Kamera | ✅ |
 | 4 | Fähigkeiten, Kontext, sichtbares Verhalten | ✅ |
-| 5 | Journal, erste Aufgabe | – |
+| 5 | Journal, erste Aufgabe | ✅ |
 | 6 | Android-Export, Performance | – |
+
+![Waldwelt: Kreaturen-Karte mit Einschätzung der Fähigkeiten](docs/images/creature_card.png)
 
 ![Waldwelt: Lichtung am Bach mit der Startgruppe](docs/images/forest.png)
 
@@ -30,12 +32,14 @@ deren Art und Fähigkeiten durch Beobachtung und weist ihnen in kurzen Aufgaben 
 Projekt im Godot-Editor öffnen und F5 drücken. Das Startmenü (`scenes/main.tscn`) führt zu den
 Debug-Szenen; oben rechts gibt es überall einen „Menü“-Knopf (Esc / Android-Zurück geht auch).
 
-- **Waldwelt** (`scenes/world/forest.tscn`, M3): Gelände mit Bach, Lichtung, Felsen und
-  Fruchtbäumen, Spatial-Gardener-Vegetation, Tag/Nacht (8 min pro Tag), Wetter mit Regen,
-  16 Kreaturen der Startgruppe zeigen ihre Fähigkeiten im Alltag (klettern, schwimmen/waten,
-  graben, Steine tragen, rufen, wittern, nachts schlafen oder mit leuchtenden Augen aktiv sein,
-  drohen). HUD: Uhrzeit, Wetter, Licht, FPS, aktuelles Verhalten der gewählten Kreatur;
-  Knöpfe für Zeitraffer, +3 h, Wetter, Folgen und (Debug) Fähigkeitswerte.
+- **Waldwelt** (`scenes/world/forest.tscn`) – das eigentliche Spiel: Gelände mit Bach, Lichtung,
+  Felsen und Fruchtbäumen, Tag/Nacht (8 min pro Tag), Wetter. Die Gruppe (anfangs 9 Kreaturen mit
+  Namen) zeigt ihre Fähigkeiten im Alltag. **Kreatur antippen** → Karte mit Markierung, eigener
+  Gruppe, Einschätzung der Fähigkeiten, Notiz, Beobachtungen. **Journal** → Kreaturen, Gruppen,
+  Protokoll. **Aufgaben** → Aufgabe wählen, Rollen besetzen, starten; die Kreaturen spielen sie
+  vor, danach Auswertung mit Hinweisen. Gelöste Aufgaben bringen neue Mitglieder (oft
+  Doppelgänger). Der Spielstand wird automatisch gespeichert. **Debug** zeigt Arten und
+  Fähigkeitswerte und bietet „Neues Spiel“.
 - **Kreaturen-Labor** (`scenes/debug/creature_lab.tscn`, M2): alle Baupläne laufen als 3D-Kreaturen
   mit IK über unebenen Boden. Ziehen = drehen, Pinch/Mausrad = zoomen, zwei Finger/rechte
   Maustaste = verschieben, Antippen = Kreatur auswählen (Kamera folgt). Knöpfe: +5/−5,
@@ -81,6 +85,7 @@ xvfb-run -s "-screen 0 1280x720x24" godot --rendering-driver opengl3 \
 
 - Gene: [`docs/genome_parameters.md`](docs/genome_parameters.md) → `data/genome_schema.json`
 - Taxa, Dimorphismus, Konvergenz, Generator: [`docs/taxonomy_format.md`](docs/taxonomy_format.md) → `data/taxonomies/`, `data/generator_presets/`
+- Aufgaben, Journal, Spielstand, Fortschritt: [`docs/tasks_format.md`](docs/tasks_format.md) → `data/tasks/`, `data/game/`
 - Fähigkeiten, Kontext, Verhalten, Polymorphismus, Trennschärfe: [`docs/abilities_format.md`](docs/abilities_format.md) → `data/abilities/`
 - Welt-Layout, Vegetationsregeln, Startgruppe: [`docs/world_format.md`](docs/world_format.md) → `data/world/`
 - Spatial Gardener (Version, Einrichtung, Build-Tool): [`docs/spatial_gardener.md`](docs/spatial_gardener.md)
@@ -105,6 +110,10 @@ src/mesh/              Mesh-Builder und Shader
 src/locomotion/        IK, Schrittmuster, Schrittplaner
 src/abilities/         Fähigkeitskatalog und -profil
 src/behaviors/         Verhaltensgehirn, Verhaltensweisen, Effekte
+src/game/              Spielstand, Gruppe, Rekrutierung
+src/journal/           Beobachtungs-Journal
+src/tasks/             Aufgaben: Format, Bewertung, Wiedergabe
+src/ui/                Karte, Journal, Aufgabenwahl, Auswertung
 src/camera/            Touch-/Orbit-Kamera
 src/world/             Layout, Gelände, Vegetation, Tageszeit, Wetter, Kontext, Navigation
 src/debug/             Menü, Viewer, Glyphen, Vergleich, Labor
