@@ -19,13 +19,13 @@ Abhängigkeiten zeigen nur nach unten. Die beiden unteren Schichten sind **node-
 ```
 tasks / journal / progression         (M5)  Spiellogik
 abilities + behaviors  <- world_context (M4/M3) Fähigkeiten, Kontext (Zeit, Wetter, Terrain)
-creature - mesh - locomotion          (M2)  Darstellung; kennt nur Genome
+creature - mesh - locomotion - camera (M2)  Darstellung; kennt nur Genome
 taxonomy - individual_factory         (M1)  Taxa, Vererbung, Dimorphismus, Konvergenz
 genome - genome_schema - distance     (M1)  Gen-Definitionen, Werte, Distanz
 core                                  (M1)  Ränge, Seeds, JSON
 ```
 
-## Module (Stand M1)
+## Module (Stand M2)
 
 | Datei | Aufgabe |
 |---|---|
@@ -42,8 +42,18 @@ core                                  (M1)  Ränge, Seeds, JSON
 | `src/taxonomy/individual_factory.gd` | Mittel-Genome pro Taxon (gecacht) und Individuen. |
 | `src/taxonomy/dimorphism.gd`, `convergence.gd` | Regeln für Geschlecht/Alter und Nachahmung. |
 | `src/taxonomy/taxonomy_generator.gd` | Zufällige Taxonomien aus Seed + Preset. |
-| `src/debug/*` | Viewer, 2D-Glyphen, Vergleichs-Panel (nur Debug). |
+| `src/creature/body_plan.gd` | Aus dem Genom abgeleitete Geometrie (Hüften, Fußruhepunkte, Maße, Tempo). |
+| `src/creature/creature_rig.gd` | Knochenaufbau, erzeugt das `Skeleton3D`. |
+| `src/mesh/creature_mesh_builder.gd`, `creature.gdshader` | Ein Mesh pro Kreatur (zwei Detailstufen), Farbe/Muster im Shader. |
+| `src/locomotion/leg_ik.gd`, `gait_table.gd`, `creature_locomotion.gd` | IK, Schrittmuster, Schrittplaner und Körperhaltung. |
+| `src/creature/creature.gd`, `creature_lod.gd` | Node3D einer Kreatur: Bewegung, Bodenhaftung, LOD. |
+| `src/creature/wander_brain.gd` | Platzhalter-Verhalten (zufällige Ziele) bis M4. |
+| `src/camera/orbit_camera.gd` | Orbit-Kamera mit Maus und Touch. |
+| `src/debug/*` | Menü, Viewer, 2D-Glyphen, Vergleich, Kreaturen-Labor, Menü-Knopf (Autoload `DebugNav`). |
 | `tools/screenshot.gd` | Szene rendern und als PNG speichern (für visuelle Prüfung). |
+| `tools/benchmark_creatures.gd` | CPU-Zeit der Kreaturen messen. |
+
+Details zu Mesh, Laufen und LOD: [`creature_rendering.md`](creature_rendering.md).
 
 ## Datenfluss einer Kreatur
 

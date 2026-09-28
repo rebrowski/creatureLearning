@@ -9,6 +9,9 @@ extends SceneTree
 ##   seed=<zahl>         Seed setzen
 ##   select=<taxon_id>   Taxon im Viewer auswählen
 ##   compare=<a>,<b>     zwei Kreaturen (Art#Nummer) in den Vergleich legen
+##   call=<methode>      Methode ohne Argumente am Szenen-Root aufrufen (z. B. call=lineup)
+##   follow=<n>,<abstand> Labor: Kamera folgt Kreatur Nummer n
+##   wait=<frames>       zusätzlich warten
 
 func _init() -> void:
 	var args := OS.get_cmdline_user_args()
@@ -23,8 +26,12 @@ func _init() -> void:
 	for n in frames:
 		await process_frame
 	for action in args.slice(3):
-		_apply(node, action)
-		for n in 10:
+		var wait := 10
+		if action.begins_with("wait="):
+			wait = int(action.substr(5))
+		else:
+			_apply(node, action)
+		for n in wait:
 			await process_frame
 	var img := root.get_texture().get_image()
 	img.save_png(args[1])
@@ -42,6 +49,12 @@ func _apply(node: Node, action: String) -> void:
 		"select":
 			node.selected_id = parts[1]
 			node._fill_tree()
+		"call":
+			node.call(parts[1])
+		"follow":
+			var f := parts[1].split(",")
+			node._select(node.creatures[int(f[0])])
+			node.camera.distance = float(f[1])
 		"compare":
 			var ids := parts[1].split(",")
 			var inds := []

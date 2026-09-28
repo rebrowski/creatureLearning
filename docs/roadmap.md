@@ -6,7 +6,7 @@ Arbeitsweise: Meilensteine nacheinander, jeweils mit Tests, Doku und Screenshot-
 Reine Datenlogik (Schema, Taxonomie, Vererbung, Dimorphismus, Konvergenz, Generator),
 GUT-Tests, Debug-Viewer mit 2D-Glyphen und Vergleichsmodus.
 
-## M2 – Prozedurales Mesh und IK-Laufen
+## M2 – Prozedurales Mesh und IK-Laufen ✅
 - `CreatureMeshBuilder`: ein Mesh pro Kreatur aus dem Genom (Segmente, Kopf, Beine, Hörner,
   Schwanz, Kamm, Fühler), gebunden an ein erzeugtes `Skeleton3D` → ein Draw-Call pro Kreatur.
 - Ein gemeinsamer Shader; Farbe und Muster (Streifen/Flecken/Band) als Parameter.

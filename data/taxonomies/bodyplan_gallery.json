@@ -1,0 +1,49 @@
+{
+  "format": "creature_taxonomy/1",
+  "name": "Bauplan-Galerie",
+  "seed": 7,
+  "notes": "Testdaten für M2: Baupläne, die in der Demo fehlen (beinlos, zweibeinig) plus je eine Gangart pro Beinzahl. Jede Ordnung ist ein Bauplan.",
+  "taxa": [
+    {
+      "id": "galeria", "rank": "class", "name": "Galeria", "common_name": "Galerie",
+      "fixed": ["segment_count", "leg_count", "gait", "body_shape"],
+      "children": [
+        {
+          "id": "g_slither", "name": "Serpentida", "common_name": "Schlängler",
+          "set": { "leg_count": 0, "segment_count": 4, "gait": "slither", "body_shape": "elongated", "body_length": 1.6, "body_width": 0.35, "tail_length": 0.7, "head_size": 0.3, "hue": 0.12, "pattern_type": "bands" },
+          "children": [{ "id": "g_slither_f", "children": [{ "id": "g_slither_g", "children": [{ "id": "g_slither_s", "name": "Serpentula longa" }] }] }]
+        },
+        {
+          "id": "g_biped_walk", "name": "Bipedida", "common_name": "Zweibeiner",
+          "set": { "leg_count": 2, "segment_count": 1, "gait": "walk", "body_shape": "round", "leg_length": 1.1, "posture": 0.9, "body_length": 0.7, "body_width": 0.6, "tail_length": 0.9, "head_size": 0.4, "hue": 0.6 },
+          "children": [{ "id": "g_biped_walk_f", "children": [{ "id": "g_biped_walk_g", "children": [{ "id": "g_biped_walk_s", "name": "Bipes erectus" }] }] }]
+        },
+        {
+          "id": "g_biped_hop", "name": "Saltopoda", "common_name": "Hüpfer",
+          "set": { "leg_count": 2, "segment_count": 1, "gait": "hop", "body_shape": "round", "leg_length": 0.8, "posture": 0.6, "body_length": 0.6, "body_width": 0.55, "tail_length": 1.2, "head_size": 0.35, "hue": 0.95 },
+          "children": [{ "id": "g_biped_hop_f", "children": [{ "id": "g_biped_hop_g", "children": [{ "id": "g_biped_hop_s", "name": "Saltopus minor" }] }] }]
+        },
+        {
+          "id": "g_quad_walk", "name": "Ambulida", "common_name": "Schreiter",
+          "set": { "leg_count": 4, "segment_count": 2, "gait": "walk", "body_shape": "elongated", "leg_length": 0.8, "posture": 0.7, "body_length": 1.3, "horn_count": 2, "hue": 0.3 },
+          "children": [{ "id": "g_quad_walk_f", "children": [{ "id": "g_quad_walk_g", "children": [{ "id": "g_quad_walk_s", "name": "Ambulus gravis" }] }] }]
+        },
+        {
+          "id": "g_quad_hop", "name": "Leporida", "common_name": "Springer",
+          "set": { "leg_count": 4, "segment_count": 1, "gait": "hop", "body_shape": "round", "leg_length": 0.6, "posture": 0.5, "body_length": 0.8, "tail_length": 0.2, "hue": 0.08, "saturation": 0.3 },
+          "children": [{ "id": "g_quad_hop_f", "children": [{ "id": "g_quad_hop_g", "children": [{ "id": "g_quad_hop_s", "name": "Leporis vulgaris" }] }] }]
+        },
+        {
+          "id": "g_hexa_walk", "name": "Hexambulida", "common_name": "Sechsschreiter",
+          "set": { "leg_count": 6, "segment_count": 3, "gait": "walk", "body_shape": "flat", "leg_length": 0.6, "posture": 0.4, "body_length": 1.2, "antenna_length": 0.6, "hue": 0.45, "pattern_type": "stripes" },
+          "children": [{ "id": "g_hexa_walk_f", "children": [{ "id": "g_hexa_walk_g", "children": [{ "id": "g_hexa_walk_s", "name": "Hexapes planus" }] }] }]
+        },
+        {
+          "id": "g_octo_scuttle", "name": "Octoscuttlida", "common_name": "Achtkrabbler",
+          "set": { "leg_count": 8, "segment_count": 2, "gait": "scuttle", "body_shape": "round", "leg_length": 1.0, "posture": 0.5, "body_length": 0.8, "hue": 0.75, "pattern_type": "spots" },
+          "children": [{ "id": "g_octo_scuttle_f", "children": [{ "id": "g_octo_scuttle_g", "children": [{ "id": "g_octo_scuttle_s", "name": "Octopes celer" }] }] }]
+        }
+      ]
+    }
+  ]
+}
