@@ -55,6 +55,7 @@ xvfb-run -s "-screen 0 1280x720x24" godot --rendering-driver opengl3 \
 - Gene: [`docs/genome_parameters.md`](docs/genome_parameters.md) → `data/genome_schema.json`
 - Taxa, Dimorphismus, Konvergenz, Generator: [`docs/taxonomy_format.md`](docs/taxonomy_format.md) → `data/taxonomies/`, `data/generator_presets/`
 - Architektur und Module: [`docs/architecture.md`](docs/architecture.md)
+- Roadmap mit allen Meilensteinen: [`docs/roadmap.md`](docs/roadmap.md)
 
 ## Ordnerstruktur
 
