@@ -22,6 +22,8 @@ var _names: Array[Label] = []
 var _distance_label: Label
 var _relation_label: Label
 var _groups_box: VBoxContainer
+var _diag_label: Label
+var _diag_cache := {}
 var _table: GridContainer
 var _table_scroll: ScrollContainer
 
@@ -80,11 +82,17 @@ func _build_center() -> Control:
 	center.add_child(_distance_label)
 	center.add_child(_relation_label)
 	center.add_child(_groups_box)
+	_diag_label = Label.new()
+	_diag_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_diag_label.add_theme_font_size_override("font_size", 14)
+	_diag_label.add_theme_color_override("font_color", Color(0.8, 0.9, 1.0))
+	center.add_child(_diag_label)
 	return center
 
 
 func set_factory(p_factory: IndividualFactory) -> void:
 	factory = p_factory
+	_diag_cache.clear()
 	_slots = [{}, {}]
 	_next_slot = 0
 	refresh()
@@ -124,7 +132,9 @@ func refresh() -> void:
 	if inds[0] == null or inds[1] == null:
 		_distance_label.text = "–"
 		_relation_label.text = ""
+		_diag_label.text = ""
 		return
+	_diag_label.text = _diagnostics_text(inds[0].species_id, inds[1].species_id)
 
 	var a := inds[0].genome
 	var b := inds[1].genome
@@ -158,7 +168,24 @@ func _describe(ind: Individual, slot_name: String) -> String:
 	if ind == null:
 		return "%s: –" % slot_name
 	var sp := factory.taxonomy.get_taxon(ind.species_id)
-	return "%s: %s %s" % [slot_name, sp.display_name(), ind.short_label()]
+	var morph := ""
+	for m in ind.morphs.values():
+		morph += " (%s)" % m
+	return "%s: %s %s%s" % [slot_name, sp.display_name(), ind.short_label(), morph]
+
+
+## Trennschärfe der besten Einzelmerkmale zwischen zwei Arten (Designwerkzeug).
+func _diagnostics_text(a: String, b: String) -> String:
+	if a == b:
+		return ""
+	var key := "%s|%s|%s" % [a, b, JSON.stringify(factory.settings.to_dict())]
+	if not _diag_cache.has(key):
+		var r := SpeciesDiagnostics.separability(factory, a, b, 100)
+		var parts := []
+		for x in r.slice(0, 3):
+			parts.append("%s %d %%" % [x.gene, int(x.accuracy * 100)])
+		_diag_cache[key] = "Trennschärfe (bestes Einzelmerkmal):\n" + ", ".join(parts)
+	return _diag_cache[key]
 
 
 func _relation_text(a_id: String, b_id: String) -> String:

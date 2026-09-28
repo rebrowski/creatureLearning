@@ -10,6 +10,8 @@ extends RefCounted
 ##   UV2        (z, Höhe relativ zur Segmentmitte normiert auf -1..1); x < -500 = kein Muster
 
 const NO_PATTERN := Vector2(-1000.0, -1000.0)
+## UV2-Markierung für Augen (Shader: Leuchten im Dunkeln).
+const EYE_MARK := Vector2(-2000.0, 0.0)
 const HORN_COLOR := Color(0.93, 0.88, 0.74, 0.0)
 const EYE_COLOR := Color(0.05, 0.05, 0.05, 0.0)
 const BODY := Color(1, 1, 1, 1)
@@ -174,7 +176,7 @@ func _ellipsoid(c: Vector3, radii: Vector3, bone: int, color: Color, patterned: 
 			if n == Vector3.ZERO:
 				n = Vector3(0, 0, signf(z))
 			var uv := Vector2(c.z + z, phi * arc_r) if patterned else Vector2.ZERO
-			var uv2 := Vector2(c.z + z, st * sin(phi)) if patterned else NO_PATTERN
+			var uv2 := Vector2(c.z + z, st * sin(phi)) if patterned else (EYE_MARK if color == EYE_COLOR else NO_PATTERN)
 			_vertex(c + local, n, bone, color, uv, uv2)
 	var row := sectors + 1
 	for i in rings:

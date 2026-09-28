@@ -89,7 +89,7 @@ static func from_genome(g: Genome) -> BodyPlan:
 
 	p._layout_legs(leg_len)
 	var size_factor := clampf(leg_len + p.body_length * 0.3, 0.3, 2.0)
-	p.move_speed = g.f("speed") * size_factor * 0.6
+	p.move_speed = g.f("speed") * size_factor * 0.9
 	p.stride_length = maxf(0.15, leg_len * 0.7) if p.leg_count > 0 else maxf(0.2, p.body_length * 0.4)
 	return p
 

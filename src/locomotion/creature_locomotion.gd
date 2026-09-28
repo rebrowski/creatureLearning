@@ -19,6 +19,17 @@ var plan: BodyPlan
 var rig: CreatureRig
 var skeleton: Skeleton3D
 var ground_query: Callable
+## Optional: func(leg: int, hip_world: Vector3) -> Variant. Liefert eine Vector3-
+## Fußposition (Welt) oder null für normales Laufen (z. B. Paddeln, Scharren, Klettern).
+var foot_override: Callable
+
+## Posen-Ziele für Verhalten (werden weich angesteuert):
+## Höhe (m), Nicken/Rollen (rad, + = Nase hoch / rechts hoch), Größe, Kopfneigung (rad).
+var pose_height := 0.0
+var pose_pitch := 0.0
+var pose_roll := 0.0
+var pose_scale := 1.0
+var head_pitch := 0.0
 
 ## Gangzyklus 0..1
 var phase := 0.0
@@ -37,6 +48,8 @@ var _body_y := 0.0
 var _pitch := 0.0
 var _roll := 0.0
 var _speed_factor := 0.0
+var _pose := Vector4.ZERO  # aktuelle Höhe, Nicken, Rollen, Kopf
+var _scale := 1.0
 
 
 func _init(p_plan: BodyPlan, p_rig: CreatureRig, p_skeleton: Skeleton3D, p_ground_query: Callable) -> void:
@@ -74,7 +87,21 @@ func update(delta: float, xform: Transform3D, velocity: Vector3, use_raycasts :=
 	var swing_frac := 1.0 - _duty
 	var stance_time := 1.0
 
-	if plan.leg_count > 0:
+	var kp := 1.0 - exp(-5.0 * delta)
+	_pose = _pose.lerp(Vector4(pose_height, pose_pitch, pose_roll, head_pitch), kp)
+	_scale = lerpf(_scale, pose_scale, kp)
+
+	if plan.leg_count > 0 and foot_override.is_valid():
+		phase = fposmod(phase + delta * 1.2, 1.0)
+		for leg in plan.leg_count:
+			var hip_world := xform * (body_transform() * rig.local_rest[rig.upper[leg]])
+			var r = foot_override.call(leg, hip_world)
+			if r is Vector3:
+				feet[leg] = r
+				swinging[leg] = 0
+			else:
+				_update_leg(leg, xform, velocity, speed, swing_frac, 1.0, use_raycasts)
+	elif plan.leg_count > 0:
 		var freq := speed * _duty / plan.stride_length
 		if freq < IDLE_STEP_FREQUENCY * 0.5 and _needs_correction(xform):
 			freq = IDLE_STEP_FREQUENCY
@@ -209,8 +236,8 @@ func body_transform() -> Transform3D:
 			bob = cos(TAU * 2.0 * phase) * reach * 0.035 * s
 			if plan.leg_count == 2:
 				sway_roll = sin(TAU * phase) * 0.08 * s
-	var basis := Basis.from_euler(Vector3(_pitch, sway_yaw, _roll + sway_roll))
-	return Transform3D(basis, Vector3(0.0, plan.body_center_y + _body_y + bob, 0.0))
+	var basis := Basis.from_euler(Vector3(_pitch + _pose.y, sway_yaw, _roll + sway_roll + _pose.z)).scaled(Vector3.ONE * _scale)
+	return Transform3D(basis, Vector3(0.0, plan.body_center_y + _body_y + bob + _pose.x, 0.0))
 
 
 func _apply_pose(xform: Transform3D) -> void:
@@ -224,6 +251,8 @@ func _apply_pose(xform: Transform3D) -> void:
 		var yaw := sin(ph) * wave_amp
 		var offset := Vector3(sin(ph) * wave_amp * plan.half_width, 0.0, 0.0)
 		_set_local(rig.segments[i], Transform3D(Basis(Vector3.UP, yaw), rig.local_rest[rig.segments[i]] + offset))
+
+	_set_local(rig.head, Transform3D(Basis(Vector3.RIGHT, _pose.w), rig.local_rest[rig.head]))
 
 	# Schwanz: hängt, beim Hüpfen erhoben, wedelt mit dem Gang
 	var droop := -0.25 if plan.gait == "hop" else 0.2
@@ -240,6 +269,7 @@ func _apply_pose(xform: Transform3D) -> void:
 		var ik := LegIK.solve(hip, inv * feet[leg], plan.upper_leg, plan.lower_leg, pole)
 		var upper_global := Transform3D(LegIK.bone_basis(hip, ik.knee), hip)
 		var lower_global := Transform3D(LegIK.bone_basis(ik.knee, ik.foot), ik.knee)
+		# gegen den (evtl. aufgeplusterten) Rumpf gerechnet: Beine behalten ihre Länge
 		_set_local(rig.upper[leg], root_pose.affine_inverse() * upper_global)
 		_set_local(rig.lower[leg], upper_global.affine_inverse() * lower_global)
 
@@ -247,3 +277,4 @@ func _apply_pose(xform: Transform3D) -> void:
 func _set_local(bone: int, t: Transform3D) -> void:
 	skeleton.set_bone_pose_position(bone, t.origin)
 	skeleton.set_bone_pose_rotation(bone, t.basis.get_rotation_quaternion())
+	skeleton.set_bone_pose_scale(bone, t.basis.get_scale())

@@ -35,7 +35,9 @@ Arten haben keine Kinder. Einzelne Kreaturen stehen **nicht** in der Datei; sie 
 | `common_name` | Deutscher Name (Anzeige). |
 | `set` | `{gen: wert}` – ersetzt den geerbten Wert. Auf diesem Rang kein Zufall für diese Gene; tiefere Ränge weichen wieder ab (außer mit `fixed`). Enum-Werte als Name, z. B. `"gait": "hop"`. |
 | `shift` | `{gen: zahl}` – addiert eine feste Verschiebung (absolute Einheiten), danach kommt der normale Zufall. Nicht für enum-Gene. |
-| `variance` | `{gen: zahl}` – eigene Streuung für diesen Rang als Bruchteil des Wertebereichs (0.1 = 10 %), statt `base_variance`. Bei enum-Genen: Wechselwahrscheinlichkeit. `0` = auf diesem Rang keine Abweichung. |
+| `variance` | `{gen: zahl}` – eigene Streuung für diesen Rang als Bruchteil des Wertebereichs (0.1 = 10 %), statt `base_variance`. Bei enum-Genen: Wechselwahrscheinlichkeit. `0` = auf diesem Rang keine Abweichung. `"*"` gilt für alle nicht genannten Gene (z. B. `{"*": 0.01}` für Doppelgänger-Arten). |
+| `individual_variance` | `{gen: zahl}` – Streuung der **Individuen** (statt `base_variance.individual`), gilt für den ganzen Teilbaum; `"*"` = alle übrigen Gene. Große Werte machen Merkmale innerhalb der Art unzuverlässig. |
+| `morphs` | Polymorphismus: `[{"name", "p", "set", "shift", "scale"}]` – jedes Individuum würfelt eine Variante (Summe der `p` ≤ 1, Rest = keine Variante). Beispiel: `[{"name": "ungefleckt", "p": 0.2, "set": {"pattern_type": "none"}}]` |
 | `fixed` | `["gen", ...]` – diese Gene weichen ab hier im ganzen Teilbaum (inklusive Individuen) nicht mehr zufällig ab. Ein explizites `set`/`shift` weiter unten wirkt trotzdem. Typisch für Baupläne: `"fixed": ["leg_count", "segment_count"]` auf der Klasse. |
 | `dimorphism` | Geschlechts-/Altersunterschiede, siehe unten. |
 | `convergence` | Oberflächliche Ähnlichkeit zu einem nicht verwandten Taxon, siehe unten. |
@@ -97,7 +99,7 @@ Alle Felder optional; fehlende behalten ihren Standard.
 ```jsonc
 "similarity": {
   "spread":        { "class": 1, "order": 1, "family": 1, "genus": 1, "species": 1, "individual": 1 },
-  "base_variance": { "class": 0.2, "order": 0.12, "family": 0.08, "genus": 0.06, "species": 0.04, "individual": 0.02 },
+  "base_variance": { "class": 0.2, "order": 0.12, "family": 0.08, "genus": 0.06, "species": 0.04, "individual": 0.03 },
   "dimorphism_strength": 1.0,
   "convergence_strength": 1.0,
   "enum_switch_factor": 2.0
@@ -106,6 +108,9 @@ Alle Felder optional; fehlende behalten ihren Standard.
 
 `spread` sind die Hauptregler: `species` steuert, wie stark sich Arten einer Gattung unterscheiden,
 `individual` die Streuung innerhalb einer Art. `0` schaltet die Abweichung auf dem Rang ab.
+
+Fähigkeiten (unsichtbare Gene wie `swim`, `night_vision`) werden genauso mit `set`/`shift`
+festgelegt, siehe [`abilities_format.md`](abilities_format.md).
 
 ## Neues Taxon hinzufügen – Beispiel
 

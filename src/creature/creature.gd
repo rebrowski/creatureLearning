@@ -26,6 +26,14 @@ var locomotion: CreatureLocomotion
 var material: ShaderMaterial
 var label := ""
 
+## Fähigkeiten (gesetzt von der Welt, ab M4).
+var abilities: AbilityProfile
+## Gerade ausgeführtes Verhalten (Anzeige/Debug).
+var behavior_label := ""
+## true = ein Verhalten setzt Position/Drehung selbst (Klettern, Schwimmen …);
+## dann keine eigene Fortbewegung und keine Bodenhaftung.
+var scripted := false
+
 var desired_velocity := Vector3.ZERO
 var velocity := Vector3.ZERO
 var lod_level := CreatureLOD.FULL
@@ -84,7 +92,8 @@ func _physics_process(delta: float) -> void:
 		return
 	_frame += 1
 	_update_lod(delta)
-	_move(delta)
+	if not scripted:
+		_move(delta)
 	match lod_level:
 		CreatureLOD.FULL:
 			locomotion.update(delta, global_transform, velocity, true)
@@ -113,6 +122,26 @@ func _move(delta: float) -> void:
 	global_position += velocity * delta
 	if lod_level <= CreatureLOD.REDUCED or _frame % 8 == 0:
 		_snap_to_ground()
+
+
+func set_eye_glow(value: float) -> void:
+	material.set_shader_parameter("eye_glow", clampf(value, 0.0, 1.0))
+
+
+## Setzt alle Verhaltens-Eingriffe zurück (Pose, Füße, Skript-Modus).
+func clear_behavior_pose() -> void:
+	scripted = false
+	locomotion.foot_override = Callable()
+	locomotion.pose_height = 0.0
+	locomotion.pose_pitch = 0.0
+	locomotion.pose_roll = 0.0
+	locomotion.pose_scale = 1.0
+	locomotion.head_pitch = 0.0
+
+
+## Bodenhöhe an einer Position (Raycast), NAN wenn kein Boden.
+func ground_height_at(p: Vector3) -> float:
+	return _ground_height(p)
 
 
 func _snap_to_ground() -> void:

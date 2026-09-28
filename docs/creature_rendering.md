@@ -29,7 +29,7 @@ Creature (Node3D): Bewegung Richtung desired_velocity, Bodenhaftung, LOD
 | `hue`, `saturation`, `brightness` | Körperfarbe (Shader-Parameter). |
 | `pattern_type`, `pattern_density`, `pattern_contrast` | Muster im Shader: Querstreifen, Flecken, Längsband; Dichte = Anzahl pro Segment. |
 | `gait` | Schrittmuster (siehe unten), Hüpf-/Schlängelbewegung des Körpers. |
-| `speed` | Grundtempo; zusammen mit der Größe: `move_speed = speed × clamp(Beinlänge + 0.3 × Rumpflänge, 0.3, 2) × 0.6` m/s. |
+| `speed` | Grundtempo; zusammen mit der Größe: `move_speed = speed × clamp(Beinlänge + 0.3 × Rumpflänge, 0.3, 2) × 0.9` m/s. |
 
 ## Skelett
 

@@ -54,6 +54,17 @@ beeinflusst nur die Anzeige.
 | `pattern_type` | pattern | enum | none / stripes / spots / bands | none | species | 1.2 |  | Musterart: keins, Querstreifen, Flecken, Längsband. |
 | `pattern_density` | pattern | float | 1.0 – 8.0 | 3.0 | individual | 0.5 | `pattern_type` | Wie viele Streifen/Flecken pro Segment. |
 | `pattern_contrast` | pattern | float | 0.0 – 1.0 | 0.5 | individual | 0.5 | `pattern_type` | Kontrast des Musters zur Grundfarbe. |
+| `climb` | ability *(unsichtbar)* | float | 0.0 – 1.0 | 0.4 | individual | 1.0 |  | Klettern (Fels, Baum) |
+| `swim` | ability *(unsichtbar)* | float | 0.0 – 1.0 | 0.4 | individual | 1.0 |  | Schwimmen |
+| `dig` | ability *(unsichtbar)* | float | 0.0 – 1.0 | 0.4 | individual | 1.0 |  | Graben |
+| `carry` | ability *(unsichtbar)* | float | 0.0 – 1.0 | 0.4 | individual | 1.0 |  | Tragen |
+| `noise` | ability *(unsichtbar)* | float | 0.0 – 1.0 | 0.4 | individual | 1.0 |  | Lärm machen / rufen |
+| `night_vision` | ability *(unsichtbar)* | float | 0.0 – 1.0 | 0.4 | individual | 1.0 |  | Im Dunkeln sehen |
+| `scent` | ability *(unsichtbar)* | float | 0.0 – 1.0 | 0.4 | individual | 1.0 |  | Wittern |
+| `scare` | ability *(unsichtbar)* | float | 0.0 – 1.0 | 0.4 | individual | 1.0 |  | Gefahr verscheuchen / drohen |
+
+Die Gruppe `ability` enthält die Fähigkeiten (unsichtbar, `variance_scale` 1.5); ihre Kopplung an
+sichtbare Merkmale und den Kontext beschreibt [`abilities_format.md`](abilities_format.md).
 
 Längenangaben sind in Metern gedacht; der 3D-Builder (M2) übernimmt sie direkt.
 
@@ -65,11 +76,13 @@ Für jedes Gen und jeden Rang `r` (Klasse → Art, dann Individuum):
 wenn Taxon.set[gen]            -> wert = set[gen]                 (kein Zufall auf diesem Rang)
 sonst wenn gen in fixed (auch geerbt) -> wert bleibt (+ shift)
 sonst                          -> wert = wert + shift[gen] + N(0, sigma) × Wertebereich
-sigma = (Taxon.variance[gen] oder base_variance[r]) × spread[r] × gen.variance_scale
+sigma = (Taxon.variance[gen] bzw. ["*"] oder base_variance[r]) × spread[r] × gen.variance_scale
+Individuen: sigma = (individual_variance aus der Abstammung oder base_variance[individual]) × spread[individual]
+danach: Polymorphismus (morphs), dann Geschlechts-/Altersdimorphismus
 ```
 
 - `base_variance` (Standard: Klasse 0.2, Ordnung 0.12, Familie 0.08, Gattung 0.06, Art 0.04,
-  Individuum 0.02) sorgt dafür, dass höhere Ränge grobe, tiefere Ränge feine Unterschiede erzeugen.
+  Individuum 0.03) sorgt dafür, dass höhere Ränge grobe, tiefere Ränge feine Unterschiede erzeugen.
 - `spread` sind die globalen Regler (Debug-Viewer: „Arten“, „Individuen“ usw.).
 - `enum`-Gene wechseln statt Gauß-Rauschen mit Wahrscheinlichkeit `sigma × enum_switch_factor`
   (Standard 2.0) auf eine andere Option.
@@ -90,7 +103,7 @@ Orientierung mit Standardreglern (generierte Taxonomie, erwachsene Weibchen):
 
 | gemeinsamer Rang | mittlere Distanz |
 |---|---|
-| gleiche Art | ≈ 0.01 |
+| gleiche Art | ≈ 0.02 |
 | gleiche Gattung | ≈ 0.06 |
 | gleiche Familie | ≈ 0.09 |
 | gleiche Ordnung | ≈ 0.11 |

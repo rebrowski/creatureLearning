@@ -21,12 +21,12 @@ Waldszene (Terrain, Bach, Lichtung, Felsen, Bäume mit Früchten), Spatial Garde
 Low-Poly-Platzhaltern (`docs/spatial_gardener.md`), Tag/Nacht, Regen, Terrain-Zonen,
 Touch-Kamera, Kreaturen wandern per Navigation.
 
-## M4 – Fähigkeiten, Kontext, Verhalten
+## M4 – Fähigkeiten, Kontext, Verhalten ✅
 - Fähigkeiten als unsichtbare Gene im selben Vererbungsmechanismus, teils an sichtbare Merkmale
   gekoppelt (`derived_from`), Kontext-Modifikatoren (Terrain, Tageszeit, Wetter).
 - Leerlauf-Verhalten (klettern, graben, schwimmen …) als Informationsquelle für den Spieler.
-- **Diagnostische Unschärfe** (vorgemerkt nach M1-Messung: aktuell trennt fast immer ein
-  einzelnes Merkmal zwei Arten zu 100 %):
+- **Diagnostische Unschärfe** (umgesetzt; nach M1 trennte fast immer ein einzelnes Merkmal
+  zwei Arten zu 100 %):
   1. **Polymorphismus mit Häufigkeiten** pro Taxon, z. B.
      `"morphs": [{"p": 0.8}, {"p": 0.2, "set": {"pattern_type": "none"}}]`, pro Individuum
      reproduzierbar gewürfelt, unabhängig vom Geschlecht.

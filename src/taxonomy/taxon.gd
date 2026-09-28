@@ -6,6 +6,8 @@ extends RefCounted
 ##   set       – feste Werte (ersetzen den geerbten Wert, keine Zufallsabweichung)
 ##   shift     – feste Verschiebung (addiert, dann Zufallsabweichung)
 ##   variance  – eigene Streuung pro Gen statt SimilaritySettings.base_variance
+##   individual_variance – Streuung der Individuen (statt base_variance[individual]), vererbt
+##   morphs    – Varianten mit Häufigkeit, pro Individuum gewürfelt (Polymorphismus)
 ##   fixed     – Gene, die ab hier (inkl. aller Nachkommen und Individuen) nicht mehr
 ##               zufällig abweichen; explizites set/shift weiter unten bleibt möglich
 ## Details: docs/taxonomy_format.md
@@ -20,8 +22,14 @@ var children: PackedStringArray = []
 var set_values: Dictionary = {}
 ## gene_id -> float (absolute Einheiten)
 var shift: Dictionary = {}
-## gene_id -> float (Bruchteil des Wertebereichs bzw. Wechselwahrscheinlichkeit bei ENUM)
+## gene_id -> float (Bruchteil des Wertebereichs bzw. Wechselwahrscheinlichkeit bei ENUM);
+## Schlüssel "*" gilt für alle nicht genannten Gene.
 var variance: Dictionary = {}
+## Wie variance, aber für das Rauschen der Individuen; gilt für den ganzen Teilbaum
+## (feinster Eintrag gewinnt).
+var individual_variance: Dictionary = {}
+## [{"name": String, "p": float, "set": {}, "shift": {}, "scale": {}}]
+var morphs: Array = []
 ## Gene ohne weitere Zufallsabweichung in diesem Teilbaum.
 var fixed: PackedStringArray = []
 ## Stufe ("male", "female", "juvenile") -> {"set": {}, "shift": {}, "scale": {}}
@@ -50,6 +58,19 @@ func to_dict(schema: GenomeSchema) -> Dictionary:
 		d["shift"] = shift.duplicate()
 	if not variance.is_empty():
 		d["variance"] = variance.duplicate()
+	if not individual_variance.is_empty():
+		d["individual_variance"] = individual_variance.duplicate()
+	if not morphs.is_empty():
+		var list := []
+		for m in morphs:
+			var out := {"name": m.name, "p": m.p}
+			if m["set"].size() > 0:
+				out["set"] = _values_to_json(m["set"], schema)
+			for op in ["shift", "scale"]:
+				if m[op].size() > 0:
+					out[op] = m[op].duplicate()
+			list.append(out)
+		d["morphs"] = list
 	if not fixed.is_empty():
 		d["fixed"] = Array(fixed)
 	if not dimorphism.is_empty():

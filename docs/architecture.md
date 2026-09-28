@@ -18,7 +18,7 @@ Abhängigkeiten zeigen nur nach unten. Die beiden unteren Schichten sind **node-
 
 ```
 tasks / journal / progression         (M5)  Spiellogik
-abilities + behaviors                 (M4)  Fähigkeiten, sichtbares Verhalten
+abilities + behaviors                 (M4)  Fähigkeiten, sichtbares Verhalten, Trennschärfe
 world: terrain, weather, context, nav (M3)  Waldwelt, Tageszeit, Wetter, Zonen
 creature - mesh - locomotion - camera (M2)  Darstellung; kennt nur Genome
 taxonomy - individual_factory         (M1)  Taxa, Vererbung, Dimorphismus, Konvergenz
@@ -26,7 +26,7 @@ genome - genome_schema - distance     (M1)  Gen-Definitionen, Werte, Distanz
 core                                  (M1)  Ränge, Seeds, JSON
 ```
 
-## Module (Stand M3)
+## Module (Stand M4)
 
 | Datei | Aufgabe |
 |---|---|
@@ -56,7 +56,11 @@ core                                  (M1)  Ränge, Seeds, JSON
 | `src/world/fruit_tree.gd` | Baum mit Früchten in bestimmter Höhe (für Aufgaben). |
 | `src/world/day_night_cycle.gd`, `weather.gd` | Tageszeit und Wetter. |
 | `src/world/world_context.gd` | Kontextabfrage für Fähigkeiten/Verhalten. |
-| `src/world/forest_navigation.gd`, `src/creature/nav_wander_brain.gd` | Navmesh zur Laufzeit, Umherstreifen mit Abstandhalten. |
+| `src/world/forest_navigation.gd` | Navmesh zur Laufzeit (Bach ausgespart). |
+| `src/abilities/ability_catalog.gd`, `ability_profile.gd` | Fähigkeiten aus `abilities.json`: Kopplung an sichtbare Gene, Kontextfaktoren. |
+| `src/behaviors/behavior_brain.gd`, `*_behavior.gd` | Nutzenbasierte Auswahl und zehn sichtbare Verhaltensweisen. |
+| `src/behaviors/nav_mover.gd`, `behavior_effects.gd`, `carry_item.gd` | Wegfolgen mit Abstandhalten, Effekte (Erde, Rufwellen, Löcher …), tragbare Steine. |
+| `src/taxonomy/species_diagnostics.gd` | Trennschärfe einzelner Gene zwischen zwei Arten (Designwerkzeug). |
 | `src/world/forest_world.gd` | Wurzel der Waldszene, Startgruppe, HUD. |
 | `tools/build_forest.gd` | Erzeugt `forest.tscn` inkl. Spatial-Gardener-Vegetation. |
 | `src/debug/*` | Menü, Viewer, 2D-Glyphen, Vergleich, Kreaturen-Labor, Menü-Knopf (Autoload `DebugNav`). |
@@ -79,6 +83,7 @@ unsichtbare Gene aus demselben Schema – vererbt über denselben Mechanismus.
 
 ## Welt
 
-Details: [`world_format.md`](world_format.md), Vegetation: [`spatial_gardener.md`](spatial_gardener.md).
+Details: [`world_format.md`](world_format.md), Vegetation: [`spatial_gardener.md`](spatial_gardener.md),
+Fähigkeiten und Verhalten: [`abilities_format.md`](abilities_format.md).
 Abweichung vom ursprünglichen Plan: Zonen werden analytisch aus dem Layout berechnet statt über
 Area3D-Knoten – schneller, testbar und ohne doppelte Datenhaltung.

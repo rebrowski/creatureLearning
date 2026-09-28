@@ -10,6 +10,8 @@ uniform int pattern_type = 0;
 // Streifen/Flecken pro Meter
 uniform float pattern_frequency = 4.0;
 uniform float pattern_contrast = 0.5;
+// Leuchtende Augen im Dunkeln (Nachtsicht, 0..1)
+uniform float eye_glow = 0.0;
 
 varying vec2 pattern_uv;
 varying vec2 pattern_uv2;
@@ -53,4 +55,7 @@ void fragment() {
 	float m = COLOR.a > 0.5 ? pattern_mask() : 0.0;
 	ALBEDO = mix(base, pattern_col, m);
 	ROUGHNESS = COLOR.a > 0.5 ? 0.75 : 0.35;
+	if (pattern_uv2.x < -1500.0) {
+		EMISSION = vec3(1.0, 0.85, 0.35) * eye_glow * 2.5;
+	}
 }

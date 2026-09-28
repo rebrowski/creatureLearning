@@ -10,6 +10,8 @@ var sex: String = "female"
 ## "adult" oder "juvenile"
 var age: String = "adult"
 var genome: Genome
+## Polymorphismus: Taxon-ID -> Name der gewürfelten Variante (nur Taxa mit morphs).
+var morphs: Dictionary = {}
 
 
 func sex_symbol() -> String:

@@ -20,7 +20,9 @@ const PHASE_LABELS := {"night": "Nacht", "dawn": "Morgen", "day": "Tag", "dusk":
 @onready var creature_root: Node3D = $Creatures
 
 var creatures: Array[Creature] = []
-var brains: Array[NavWanderBrain] = []
+var brains: Array[BehaviorBrain] = []
+var catalog: AbilityCatalog
+var show_abilities := false
 var selected: Creature
 
 var _status: Label
@@ -63,7 +65,13 @@ func _process(_delta: float) -> void:
 		creatures.size(), ("bereit" if navigation.is_baked else "wird gebacken …")]
 	if selected != null:
 		var s := context.sample(selected.global_position)
-		_info.text = "%s\nZone %s%s" % [selected.label, s.get("zone", "?"), " · im Wasser" if s.get("in_water", false) else ""]
+		var text := "%s\n%s · Zone %s" % [selected.label, selected.behavior_label if selected.behavior_label != "" else "…", s.get("zone", "?")]
+		if show_abilities and selected.abilities != null:
+			var parts := []
+			for entry in selected.abilities.ranked():
+				parts.append("%s %d" % [catalog.name_of(entry[0]), int(entry[1] * 100)])
+			text += "\n" + " · ".join(parts)
+		_info.text = text
 	else:
 		_info.text = "Zone unter der Kamera: %s · Tippe eine Kreatur an." % sample.get("zone", "?")
 
@@ -82,6 +90,9 @@ func _spawn_group() -> void:
 		push_error("\n".join(loader.errors))
 		return
 	var factory := IndividualFactory.new(tax)
+	catalog = AbilityCatalog.load_file(tax.schema)
+	if not catalog.is_valid():
+		push_error("\n".join(catalog.errors))
 	var l := terrain.layout
 	var home := Vector3(l.spawn_pos.x, 0.0, l.spawn_pos.y)
 	for i in group.get("members", []).size():
@@ -96,11 +107,28 @@ func _spawn_group() -> void:
 		c.rotation.y = TAU * i / 7.0
 		creature_root.add_child(c)
 		c.setup_individual(ind, tax.get_taxon(m.species).display_name())
+		c.abilities = AbilityProfile.new(catalog, ind.genome)
 		creatures.append(c)
-		var brain := NavWanderBrain.new(c, navigation, home, RngUtil.derive_seed(["brain", ind.id]))
+		var brain := BehaviorBrain.new(c, navigation, context, home, RngUtil.derive_seed(["brain", ind.id]))
 		brain.roam_radius = 16.0
-		brain.others = creatures
+		brain.mover.others = creatures
 		brains.append(brain)
+	_spawn_items(l)
+
+
+## Tragbare Steine auf der Lichtung (für das Trage-Verhalten).
+func _spawn_items(l: ForestLayout) -> void:
+	for i in 8:
+		var rng := RngUtil.make_rng(["item", l.seed_value, i])
+		var a := rng.randf_range(0.0, TAU)
+		var r := rng.randf_range(1.0, l.spawn_radius + 2.0)
+		var x := l.spawn_pos.x + cos(a) * r
+		var z := l.spawn_pos.y + sin(a) * r
+		var item := CarryItem.new()
+		item.size = [0.12, 0.18, 0.25, 0.32, 0.4, 0.15, 0.22, 0.48][i]
+		item.seed_value = i
+		item.position = Vector3(x, l.height_at(x, z), z)
+		creature_root.add_child(item)
 
 
 func _spawn_point(l: ForestLayout, i: int) -> Vector3:
@@ -153,6 +181,10 @@ func _build_hud() -> void:
 	_button(bar, "+3 h", func(): day_night.hour = fposmod(day_night.hour + 3.0, 24.0))
 	_weather_button = _button(bar, "Wetter: auto", _cycle_weather)
 	_button(bar, "Folgen aus", _select.bind(null))
+	var ab := _button(bar, "Fähigkeiten: aus", Callable())
+	ab.pressed.connect(func():
+		show_abilities = not show_abilities
+		ab.text = "Fähigkeiten: " + ("an" if show_abilities else "aus"))
 	_info = _outlined_label()
 	root.add_child(_info)
 
@@ -161,7 +193,8 @@ func _button(parent: Control, text: String, action: Callable) -> Button:
 	var b := Button.new()
 	b.text = text
 	b.custom_minimum_size = Vector2(100, 44)
-	b.pressed.connect(action)
+	if action.is_valid():
+		b.pressed.connect(action)
 	parent.add_child(b)
 	return b
 
@@ -186,3 +219,20 @@ func _cycle_weather() -> void:
 	if mode != "auto":
 		weather.set_state(mode)
 	_weather_button.text = "Wetter: " + (WEATHER_LABELS.get(mode, "auto"))
+
+
+# --- Debug --------------------------------------------------------------------
+
+## "index:verhalten" – erzwingt ein Verhalten und folgt der Kreatur (Screenshots, Tests).
+func debug_force(spec: String) -> void:
+	var parts := spec.split(":")
+	var i := int(parts[0])
+	brains[i].force(parts[1])
+	_select(creatures[i])
+	camera.distance = 6.0
+
+
+## Simulationsgeschwindigkeit (1 = normal).
+func debug_speed(scale: float) -> void:
+	Engine.time_scale = scale
+	Engine.max_physics_steps_per_frame = maxi(8, int(8 * scale))

@@ -3,14 +3,14 @@
 Godot-4-Spiel für Android: Der Spieler lebt in einer Gruppe prozedural erzeugter Kreaturen, erschließt
 deren Art und Fähigkeiten durch Beobachtung und weist ihnen in kurzen Aufgaben passende Rollen zu.
 
-**Stand: Meilenstein 3** – Genom und Taxonomie (M1), prozedurale 3D-Kreaturen mit IK-Laufen (M2), Waldwelt mit Spatial Gardener, Tageszeit und Wetter (M3).
+**Stand: Meilenstein 4** – Genom und Taxonomie (M1), prozedurale 3D-Kreaturen mit IK-Laufen (M2), Waldwelt mit Spatial Gardener, Tageszeit und Wetter (M3), Fähigkeiten und sichtbares Verhalten (M4).
 
 | Meilenstein | Inhalt | Status |
 |---|---|---|
 | 1 | Genom, Taxonomie, Tests, Debug-Viewer | ✅ |
 | 2 | Prozedurales Mesh, IK-Laufen | ✅ |
 | 3 | Welt mit Spatial Gardener, Touch-Kamera | ✅ |
-| 4 | Fähigkeiten, Kontext, sichtbares Verhalten | – |
+| 4 | Fähigkeiten, Kontext, sichtbares Verhalten | ✅ |
 | 5 | Journal, erste Aufgabe | – |
 | 6 | Android-Export, Performance | – |
 
@@ -32,8 +32,10 @@ Debug-Szenen; oben rechts gibt es überall einen „Menü“-Knopf (Esc / Androi
 
 - **Waldwelt** (`scenes/world/forest.tscn`, M3): Gelände mit Bach, Lichtung, Felsen und
   Fruchtbäumen, Spatial-Gardener-Vegetation, Tag/Nacht (8 min pro Tag), Wetter mit Regen,
-  16 Kreaturen der Startgruppe laufen per Navigation umher. HUD: Uhrzeit, Wetter, Licht, FPS;
-  Knöpfe für Zeitraffer, +3 h, Wetter, Folgen. Kamera wie im Labor, dazu Zwei-Finger-Drehen.
+  16 Kreaturen der Startgruppe zeigen ihre Fähigkeiten im Alltag (klettern, schwimmen/waten,
+  graben, Steine tragen, rufen, wittern, nachts schlafen oder mit leuchtenden Augen aktiv sein,
+  drohen). HUD: Uhrzeit, Wetter, Licht, FPS, aktuelles Verhalten der gewählten Kreatur;
+  Knöpfe für Zeitraffer, +3 h, Wetter, Folgen und (Debug) Fähigkeitswerte.
 - **Kreaturen-Labor** (`scenes/debug/creature_lab.tscn`, M2): alle Baupläne laufen als 3D-Kreaturen
   mit IK über unebenen Boden. Ziehen = drehen, Pinch/Mausrad = zoomen, zwei Finger/rechte
   Maustaste = verschieben, Antippen = Kreatur auswählen (Kamera folgt). Knöpfe: +5/−5,
@@ -79,6 +81,7 @@ xvfb-run -s "-screen 0 1280x720x24" godot --rendering-driver opengl3 \
 
 - Gene: [`docs/genome_parameters.md`](docs/genome_parameters.md) → `data/genome_schema.json`
 - Taxa, Dimorphismus, Konvergenz, Generator: [`docs/taxonomy_format.md`](docs/taxonomy_format.md) → `data/taxonomies/`, `data/generator_presets/`
+- Fähigkeiten, Kontext, Verhalten, Polymorphismus, Trennschärfe: [`docs/abilities_format.md`](docs/abilities_format.md) → `data/abilities/`
 - Welt-Layout, Vegetationsregeln, Startgruppe: [`docs/world_format.md`](docs/world_format.md) → `data/world/`
 - Spatial Gardener (Version, Einrichtung, Build-Tool): [`docs/spatial_gardener.md`](docs/spatial_gardener.md)
 - Mesh, Skelett, Gangarten, LOD, Performance: [`docs/creature_rendering.md`](docs/creature_rendering.md)
@@ -100,6 +103,8 @@ src/taxonomy/          Taxonomie, Loader, Generator, Individuen, Dimorphismus, K
 src/creature/          BodyPlan, Rig, Creature-Node, LOD, Platzhalter-Verhalten
 src/mesh/              Mesh-Builder und Shader
 src/locomotion/        IK, Schrittmuster, Schrittplaner
+src/abilities/         Fähigkeitskatalog und -profil
+src/behaviors/         Verhaltensgehirn, Verhaltensweisen, Effekte
 src/camera/            Touch-/Orbit-Kamera
 src/world/             Layout, Gelände, Vegetation, Tageszeit, Wetter, Kontext, Navigation
 src/debug/             Menü, Viewer, Glyphen, Vergleich, Labor

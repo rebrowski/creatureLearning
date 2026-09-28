@@ -2,82 +2,197 @@
   "format": "creature_taxonomy/1",
   "name": "Waldgruppe (Demo)",
   "seed": 20260928,
-  "notes": "Handgebaute Beispieltaxonomie. Enthält ein Konvergenzpaar (Mimula fallax ahmt Stelzus fluvialis nach), zwei fast gleich aussehende Schwesterarten (Stelzus fluvialis / nocturnus) und Geschlechtsdimorphismus (Talpides cornutus, Cornula silvestris).",
+  "notes": "Handgebaute Beispieltaxonomie. Enthält ein Konvergenzpaar (Mimula fallax ahmt Stelzus fluvialis nach), zwei fast gleich aussehende Schwesterarten (Stelzus fluvialis / nocturnus) und Geschlechtsdimorphismus (Talpides cornutus, Cornula silvestris). Fähigkeiten (unsichtbare Gene) sind pro Taxon gesetzt; Tessella maculata und Cornula saxatilis haben Farbvarianten (morphs).",
   "similarity": {
-    "spread": { "species": 1.0, "individual": 1.0 },
+    "spread": {
+      "species": 1.0,
+      "individual": 1.0
+    },
     "dimorphism_strength": 1.0,
     "convergence_strength": 1.0
   },
   "taxa": [
     {
-      "id": "chitinopoda", "rank": "class", "name": "Chitinopoda", "common_name": "Panzerläufer",
+      "id": "chitinopoda",
+      "rank": "class",
+      "name": "Chitinopoda",
+      "common_name": "Panzerläufer",
       "notes": "Gegliederte Sechs- und Achtbeiner mit Fühlern.",
       "set": {
-        "segment_count": 3, "leg_count": 6, "body_shape": "elongated",
-        "antenna_length": 0.5, "tail_length": 0.05, "head_size": 0.22,
-        "hue": 0.08, "saturation": 0.6, "brightness": 0.45
+        "segment_count": 3,
+        "leg_count": 6,
+        "body_shape": "elongated",
+        "antenna_length": 0.5,
+        "tail_length": 0.05,
+        "head_size": 0.22,
+        "hue": 0.08,
+        "saturation": 0.6,
+        "brightness": 0.45,
+        "climb": 0.6,
+        "dig": 0.4,
+        "night_vision": 0.5,
+        "scent": 0.45,
+        "noise": 0.2,
+        "carry": 0.3,
+        "swim": 0.3,
+        "scare": 0.25
       },
-      "fixed": ["segment_count", "leg_count"],
+      "fixed": [
+        "segment_count",
+        "leg_count"
+      ],
       "dimorphism": {
         "juvenile": {
-          "scale": { "body_length": 0.6, "leg_length": 0.7, "antenna_length": 0.5 },
-          "set": { "pattern_type": "none" }
+          "scale": {
+            "body_length": 0.6,
+            "leg_length": 0.7,
+            "antenna_length": 0.5
+          },
+          "set": {
+            "pattern_type": "none"
+          }
         }
       },
       "children": [
         {
-          "id": "scuttlida", "rank": "order", "name": "Scuttlida", "common_name": "Krabbler",
-          "set": { "gait": "scuttle" },
-          "fixed": ["gait"],
+          "id": "scuttlida",
+          "rank": "order",
+          "name": "Scuttlida",
+          "common_name": "Krabbler",
+          "set": {
+            "gait": "scuttle"
+          },
+          "fixed": [
+            "gait"
+          ],
           "children": [
             {
-              "id": "longipedidae", "rank": "family", "name": "Longipedidae", "common_name": "Stelzkrabbler",
-              "set": { "body_shape": "round", "leg_length": 1.2, "leg_thickness": 0.04, "posture": 0.8, "body_length": 0.7 },
+              "id": "longipedidae",
+              "rank": "family",
+              "name": "Longipedidae",
+              "common_name": "Stelzkrabbler",
+              "set": {
+                "body_shape": "round",
+                "leg_length": 1.2,
+                "leg_thickness": 0.04,
+                "posture": 0.8,
+                "body_length": 0.7,
+                "swim": 0.7
+              },
               "children": [
                 {
-                  "id": "stelzus", "rank": "genus", "name": "Stelzus",
+                  "id": "stelzus",
+                  "rank": "genus",
+                  "name": "Stelzus",
                   "children": [
                     {
-                      "id": "stelzus_fluvialis", "rank": "species", "name": "Stelzus fluvialis", "common_name": "Bach-Stelzer",
-                      "set": { "hue": 0.55, "pattern_type": "stripes" }
+                      "id": "stelzus_fluvialis",
+                      "rank": "species",
+                      "name": "Stelzus fluvialis",
+                      "common_name": "Bach-Stelzer",
+                      "set": {
+                        "hue": 0.55,
+                        "pattern_type": "stripes",
+                        "night_vision": 0.15,
+                        "swim": 0.85
+                      },
+                      "variance": {
+                        "*": 0.01
+                      }
                     },
                     {
-                      "id": "stelzus_nocturnus", "rank": "species", "name": "Stelzus nocturnus", "common_name": "Nacht-Stelzer",
-                      "set": { "hue": 0.58, "pattern_type": "stripes" },
-                      "variance": { "hue": 0.0 },
-                      "notes": "Sieht S. fluvialis fast gleich; unterscheidet sich später vor allem in Fähigkeiten (M4)."
+                      "id": "stelzus_nocturnus",
+                      "rank": "species",
+                      "name": "Stelzus nocturnus",
+                      "common_name": "Nacht-Stelzer",
+                      "set": {
+                        "hue": 0.58,
+                        "pattern_type": "stripes",
+                        "night_vision": 0.9,
+                        "swim": 0.45
+                      },
+                      "variance": {
+                        "*": 0.01
+                      },
+                      "notes": "Doppelgänger von S. fluvialis: gleiches Aussehen (kaum Art-Abweichung, große Streuung der Individuen), aber sieht nachts gut und schwimmt schlechter."
                     }
-                  ]
+                  ],
+                  "individual_variance": {
+                    "*": 0.045
+                  }
                 },
                 {
-                  "id": "hydropes", "rank": "genus", "name": "Hydropes",
-                  "set": { "leg_length": 1.45 },
+                  "id": "hydropes",
+                  "rank": "genus",
+                  "name": "Hydropes",
+                  "set": {
+                    "leg_length": 1.45
+                  },
                   "children": [
                     {
-                      "id": "hydropes_minor", "rank": "species", "name": "Hydropes minor", "common_name": "Kleiner Wasserläufer",
-                      "set": { "pattern_type": "bands", "body_length": 0.5 }
+                      "id": "hydropes_minor",
+                      "rank": "species",
+                      "name": "Hydropes minor",
+                      "common_name": "Kleiner Wasserläufer",
+                      "set": {
+                        "pattern_type": "bands",
+                        "body_length": 0.5
+                      }
                     }
                   ]
                 }
               ]
             },
             {
-              "id": "fossoridae", "rank": "family", "name": "Fossoridae", "common_name": "Gräber",
-              "set": { "body_shape": "flat", "leg_length": 0.3, "leg_thickness": 0.14, "posture": 0.2, "brightness": 0.35 },
+              "id": "fossoridae",
+              "rank": "family",
+              "name": "Fossoridae",
+              "common_name": "Gräber",
+              "set": {
+                "body_shape": "flat",
+                "leg_length": 0.3,
+                "leg_thickness": 0.14,
+                "posture": 0.2,
+                "brightness": 0.35,
+                "dig": 0.9,
+                "climb": 0.2
+              },
               "children": [
                 {
-                  "id": "talpides", "rank": "genus", "name": "Talpides",
+                  "id": "talpides",
+                  "rank": "genus",
+                  "name": "Talpides",
                   "children": [
                     {
-                      "id": "talpides_robustus", "rank": "species", "name": "Talpides robustus", "common_name": "Plumpgräber",
-                      "set": { "body_width": 0.8 }
+                      "id": "talpides_robustus",
+                      "rank": "species",
+                      "name": "Talpides robustus",
+                      "common_name": "Plumpgräber",
+                      "set": {
+                        "body_width": 0.8
+                      }
                     },
                     {
-                      "id": "talpides_cornutus", "rank": "species", "name": "Talpides cornutus", "common_name": "Horngräber",
-                      "set": { "horn_count": 1, "horn_length": 0.15 },
+                      "id": "talpides_cornutus",
+                      "rank": "species",
+                      "name": "Talpides cornutus",
+                      "common_name": "Horngräber",
+                      "set": {
+                        "horn_count": 1,
+                        "horn_length": 0.15,
+                        "scare": 0.7
+                      },
                       "dimorphism": {
-                        "male": { "shift": { "horn_length": 0.35 } },
-                        "female": { "set": { "horn_count": 0 } }
+                        "male": {
+                          "shift": {
+                            "horn_length": 0.35
+                          }
+                        },
+                        "female": {
+                          "set": {
+                            "horn_count": 0
+                          }
+                        }
                       }
                     }
                   ]
@@ -87,25 +202,70 @@
           ]
         },
         {
-          "id": "octopodida", "rank": "order", "name": "Octopodida", "common_name": "Achtbeiner",
-          "set": { "leg_count": 8, "segment_count": 2, "gait": "walk", "antenna_length": 0.0 },
-          "fixed": ["gait"],
+          "id": "octopodida",
+          "rank": "order",
+          "name": "Octopodida",
+          "common_name": "Achtbeiner",
+          "set": {
+            "leg_count": 8,
+            "segment_count": 2,
+            "gait": "walk",
+            "antenna_length": 0.0,
+            "climb": 0.9,
+            "scent": 0.3
+          },
+          "fixed": [
+            "gait"
+          ],
           "children": [
             {
-              "id": "tessellidae", "rank": "family", "name": "Tessellidae", "common_name": "Weber",
-              "set": { "body_shape": "round", "leg_length": 0.9, "posture": 0.35 },
+              "id": "tessellidae",
+              "rank": "family",
+              "name": "Tessellidae",
+              "common_name": "Weber",
+              "set": {
+                "body_shape": "round",
+                "leg_length": 0.9,
+                "posture": 0.35
+              },
               "children": [
                 {
-                  "id": "tessella", "rank": "genus", "name": "Tessella",
-                  "set": { "pattern_type": "spots" },
+                  "id": "tessella",
+                  "rank": "genus",
+                  "name": "Tessella",
+                  "set": {
+                    "pattern_type": "spots"
+                  },
                   "children": [
                     {
-                      "id": "tessella_maculata", "rank": "species", "name": "Tessella maculata", "common_name": "Fleckenweber",
-                      "set": { "hue": 0.12, "pattern_contrast": 0.8 }
+                      "id": "tessella_maculata",
+                      "rank": "species",
+                      "name": "Tessella maculata",
+                      "common_name": "Fleckenweber",
+                      "set": {
+                        "hue": 0.12,
+                        "pattern_contrast": 0.8
+                      },
+                      "morphs": [
+                        {
+                          "name": "ungefleckt",
+                          "p": 0.2,
+                          "set": {
+                            "pattern_type": "none"
+                          }
+                        }
+                      ]
                     },
                     {
-                      "id": "tessella_umbra", "rank": "species", "name": "Tessella umbra", "common_name": "Schattenweber",
-                      "set": { "brightness": 0.25, "pattern_contrast": 0.3 }
+                      "id": "tessella_umbra",
+                      "rank": "species",
+                      "name": "Tessella umbra",
+                      "common_name": "Schattenweber",
+                      "set": {
+                        "brightness": 0.25,
+                        "pattern_contrast": 0.3,
+                        "night_vision": 0.85
+                      }
                     }
                   ]
                 }
@@ -116,56 +276,152 @@
       ]
     },
     {
-      "id": "squamopoda", "rank": "class", "name": "Squamopoda", "common_name": "Schuppenläufer",
+      "id": "squamopoda",
+      "rank": "class",
+      "name": "Squamopoda",
+      "common_name": "Schuppenläufer",
       "notes": "Kompakte Körper mit großem Kopf und Schwanz.",
       "set": {
-        "segment_count": 1, "leg_count": 4, "body_shape": "elongated",
-        "tail_length": 0.8, "head_size": 0.38, "antenna_length": 0.0,
-        "hue": 0.3, "saturation": 0.45, "brightness": 0.55
+        "segment_count": 1,
+        "leg_count": 4,
+        "body_shape": "elongated",
+        "tail_length": 0.8,
+        "head_size": 0.38,
+        "antenna_length": 0.0,
+        "hue": 0.3,
+        "saturation": 0.45,
+        "brightness": 0.55,
+        "carry": 0.5,
+        "noise": 0.5,
+        "scent": 0.6,
+        "climb": 0.3,
+        "swim": 0.4,
+        "dig": 0.3,
+        "night_vision": 0.35,
+        "scare": 0.4
       },
-      "fixed": ["segment_count", "leg_count"],
+      "fixed": [
+        "segment_count",
+        "leg_count"
+      ],
       "dimorphism": {
         "juvenile": {
-          "scale": { "body_length": 0.55, "leg_length": 0.8, "tail_length": 0.6, "horn_length": 0.2, "crest_height": 0.3 },
-          "shift": { "head_size": 0.08 }
+          "scale": {
+            "body_length": 0.55,
+            "leg_length": 0.8,
+            "tail_length": 0.6,
+            "horn_length": 0.2,
+            "crest_height": 0.3
+          },
+          "shift": {
+            "head_size": 0.08
+          }
         }
       },
       "children": [
         {
-          "id": "quadrupedida", "rank": "order", "name": "Quadrupedida", "common_name": "Vierfüßer",
-          "set": { "gait": "trot" },
-          "fixed": ["gait"],
+          "id": "quadrupedida",
+          "rank": "order",
+          "name": "Quadrupedida",
+          "common_name": "Vierfüßer",
+          "set": {
+            "gait": "trot"
+          },
+          "fixed": [
+            "gait"
+          ],
           "children": [
             {
-              "id": "cornidae", "rank": "family", "name": "Cornidae", "common_name": "Hornträger",
-              "set": { "horn_count": 2, "horn_length": 0.35, "crest_height": 0.1 },
+              "id": "cornidae",
+              "rank": "family",
+              "name": "Cornidae",
+              "common_name": "Hornträger",
+              "set": {
+                "horn_count": 2,
+                "horn_length": 0.35,
+                "crest_height": 0.1,
+                "scare": 0.8,
+                "carry": 0.7
+              },
               "children": [
                 {
-                  "id": "cornula", "rank": "genus", "name": "Cornula",
+                  "id": "cornula",
+                  "rank": "genus",
+                  "name": "Cornula",
                   "children": [
                     {
-                      "id": "cornula_silvestris", "rank": "species", "name": "Cornula silvestris", "common_name": "Wald-Hornling",
+                      "id": "cornula_silvestris",
+                      "rank": "species",
+                      "name": "Cornula silvestris",
+                      "common_name": "Wald-Hornling",
                       "dimorphism": {
-                        "male": { "shift": { "horn_length": 0.3, "crest_height": 0.2, "saturation": 0.25 } },
-                        "female": { "scale": { "horn_length": 0.4 } }
+                        "male": {
+                          "shift": {
+                            "horn_length": 0.3,
+                            "crest_height": 0.2,
+                            "saturation": 0.25
+                          }
+                        },
+                        "female": {
+                          "scale": {
+                            "horn_length": 0.4
+                          }
+                        }
                       }
                     },
                     {
-                      "id": "cornula_saxatilis", "rank": "species", "name": "Cornula saxatilis", "common_name": "Fels-Hornling",
-                      "set": { "brightness": 0.4, "saturation": 0.2, "body_width": 0.65 }
+                      "id": "cornula_saxatilis",
+                      "rank": "species",
+                      "name": "Cornula saxatilis",
+                      "common_name": "Fels-Hornling",
+                      "set": {
+                        "brightness": 0.4,
+                        "saturation": 0.2,
+                        "body_width": 0.65,
+                        "climb": 0.75
+                      },
+                      "morphs": [
+                        {
+                          "name": "dunkel",
+                          "p": 0.3,
+                          "shift": {
+                            "brightness": -0.2,
+                            "saturation": -0.1
+                          }
+                        }
+                      ]
                     }
                   ]
                 }
               ]
             },
             {
-              "id": "caudidae", "rank": "family", "name": "Caudidae", "common_name": "Langschwänze",
-              "set": { "gait": "hop", "tail_length": 1.3, "leg_length": 0.9, "posture": 0.7 },
+              "id": "caudidae",
+              "rank": "family",
+              "name": "Caudidae",
+              "common_name": "Langschwänze",
+              "set": {
+                "gait": "hop",
+                "tail_length": 1.3,
+                "leg_length": 0.9,
+                "posture": 0.7
+              },
               "children": [
                 {
-                  "id": "saltator", "rank": "genus", "name": "Saltator",
+                  "id": "saltator",
+                  "rank": "genus",
+                  "name": "Saltator",
                   "children": [
-                    { "id": "saltator_agilis", "rank": "species", "name": "Saltator agilis", "common_name": "Springschwanz" }
+                    {
+                      "id": "saltator_agilis",
+                      "rank": "species",
+                      "name": "Saltator agilis",
+                      "common_name": "Springschwanz",
+                      "set": {
+                        "noise": 0.85,
+                        "climb": 0.45
+                      }
+                    }
                   ]
                 }
               ]
@@ -173,29 +429,61 @@
           ]
         },
         {
-          "id": "hexasquamida", "rank": "order", "name": "Hexasquamida", "common_name": "Sechsschupper",
+          "id": "hexasquamida",
+          "rank": "order",
+          "name": "Hexasquamida",
+          "common_name": "Sechsschupper",
           "notes": "Schuppenläufer mit sechs Beinen – Bauplan zufällig ähnlich wie bei den Panzerläufern.",
-          "set": { "leg_count": 6, "segment_count": 3 },
+          "set": {
+            "leg_count": 6,
+            "segment_count": 3
+          },
           "children": [
             {
-              "id": "pseudocrustidae", "rank": "family", "name": "Pseudocrustidae", "common_name": "Scheinkrabbler",
-              "set": { "body_shape": "round", "gait": "scuttle" },
+              "id": "pseudocrustidae",
+              "rank": "family",
+              "name": "Pseudocrustidae",
+              "common_name": "Scheinkrabbler",
+              "set": {
+                "body_shape": "round",
+                "gait": "scuttle"
+              },
               "children": [
                 {
-                  "id": "mimula", "rank": "genus", "name": "Mimula",
+                  "id": "mimula",
+                  "rank": "genus",
+                  "name": "Mimula",
                   "children": [
                     {
-                      "id": "mimula_fallax", "rank": "species", "name": "Mimula fallax", "common_name": "Trug-Stelzer",
+                      "id": "mimula_fallax",
+                      "rank": "species",
+                      "name": "Mimula fallax",
+                      "common_name": "Trug-Stelzer",
                       "convergence": {
                         "target": "stelzus_fluvialis",
-                        "groups": ["proportion", "appendage", "color", "pattern"],
+                        "groups": [
+                          "proportion",
+                          "appendage",
+                          "color",
+                          "pattern"
+                        ],
                         "strength": 0.85
                       },
-                      "notes": "Konvergent zu Stelzus fluvialis: sieht ähnlich aus, ist aber ein Schuppenläufer."
+                      "notes": "Konvergent zu Stelzus fluvialis: sieht ähnlich aus, ist aber ein Schuppenläufer – und kann kaum schwimmen.",
+                      "set": {
+                        "swim": 0.05,
+                        "night_vision": 0.2
+                      }
                     },
                     {
-                      "id": "mimula_vulgaris", "rank": "species", "name": "Mimula vulgaris", "common_name": "Gemeiner Scheinkrabbler",
-                      "notes": "Schwesterart von M. fallax ohne Nachahmung – zum Vergleich."
+                      "id": "mimula_vulgaris",
+                      "rank": "species",
+                      "name": "Mimula vulgaris",
+                      "common_name": "Gemeiner Scheinkrabbler",
+                      "notes": "Schwesterart von M. fallax ohne Nachahmung – zum Vergleich.",
+                      "set": {
+                        "dig": 0.65
+                      }
                     }
                   ]
                 }

@@ -12,6 +12,7 @@ extends SceneTree
 ##   call=<methode>      Methode ohne Argumente am Szenen-Root aufrufen (z. B. call=lineup)
 ##   follow=<n>,<abstand> Labor: Kamera folgt Kreatur Nummer n
 ##   wait=<frames>       zusätzlich warten
+##   shot=<datei.png>    Zwischenbild speichern
 ##   set=<pfad>:<eigenschaft>:<wert>   Eigenschaft eines Kind-Knotens setzen (Wert per str_to_var)
 ##   callp=<pfad>:<methode>:<arg>      Methode eines Kind-Knotens mit einem Argument aufrufen
 
@@ -31,6 +32,9 @@ func _init() -> void:
 		var wait := 10
 		if action.begins_with("wait="):
 			wait = int(action.substr(5))
+		elif action.begins_with("shot="):
+			root.get_texture().get_image().save_png(action.substr(5))
+			wait = 0
 		else:
 			_apply(node, action)
 		for n in wait:

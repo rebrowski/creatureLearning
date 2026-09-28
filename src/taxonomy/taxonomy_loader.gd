@@ -9,7 +9,8 @@ extends RefCounted
 ## Warnungen (z. B. unbekannte Felder) verhindern das Laden nicht.
 
 const TAXON_KEYS := ["id", "rank", "name", "common_name", "set", "shift", "variance", "fixed",
-		"dimorphism", "convergence", "children", "notes"]
+		"individual_variance", "morphs", "dimorphism", "convergence", "children", "notes"]
+const MORPH_KEYS := ["name", "p", "set", "shift", "scale"]
 const DIMORPHISM_OPS := ["set", "shift", "scale"]
 const CONVERGENCE_KEYS := ["target", "genes", "groups", "strength"]
 
@@ -94,7 +95,10 @@ func _parse_taxon(d: Variant, parent_id: String, expected_rank: int, tax: Taxono
 
 	t.set_values = _parse_values(d.get("set", {}), tax.schema, ctx + ".set", t.rank, true)
 	t.shift = _parse_numbers(d.get("shift", {}), tax.schema, ctx + ".shift", t.rank, false)
-	t.variance = _parse_numbers(d.get("variance", {}), tax.schema, ctx + ".variance", t.rank, true)
+	t.variance = _parse_numbers(d.get("variance", {}), tax.schema, ctx + ".variance", t.rank, true, true)
+	t.individual_variance = _parse_numbers(d.get("individual_variance", {}), tax.schema, ctx + ".individual_variance", Ranks.CLASS, true, true)
+	if d.has("morphs"):
+		t.morphs = _parse_morphs(d["morphs"], tax.schema, ctx + ".morphs")
 	var fixed = d.get("fixed", [])
 	if not fixed is Array:
 		errors.append("%s.fixed: muss eine Liste von Gen-IDs sein" % ctx)
@@ -154,12 +158,19 @@ func _parse_values(d: Variant, schema: GenomeSchema, ctx: String, rank: int, che
 
 
 ## gene_id -> float. `allow_enum`: ENUM-Gene zulassen (für variance, nicht für shift).
-func _parse_numbers(d: Variant, schema: GenomeSchema, ctx: String, rank: int, allow_enum: bool) -> Dictionary:
+## `allow_wildcard`: Schlüssel "*" (alle übrigen Gene) zulassen.
+func _parse_numbers(d: Variant, schema: GenomeSchema, ctx: String, rank: int, allow_enum: bool, allow_wildcard := false) -> Dictionary:
 	var out := {}
 	if not d is Dictionary:
 		errors.append("%s: muss ein Objekt {gen: zahl} sein" % ctx)
 		return out
 	for gene_id in d:
+		if allow_wildcard and gene_id == "*":
+			if not (d[gene_id] is float or d[gene_id] is int) or float(d[gene_id]) < 0.0:
+				errors.append("%s: '*' muss eine Zahl ≥ 0 sein" % ctx)
+			else:
+				out["*"] = float(d[gene_id])
+			continue
 		var g := schema.get_gene(gene_id)
 		if g == null:
 			errors.append("%s: unbekanntes Gen '%s'" % [ctx, gene_id])
@@ -202,6 +213,38 @@ func _parse_dimorphism(d: Variant, schema: GenomeSchema, ctx: String) -> Diction
 			else:
 				parsed[op] = _parse_numbers(rules[op], schema, sub_ctx, Ranks.CLASS, false)
 		out[stage] = parsed
+	return out
+
+
+func _parse_morphs(d: Variant, schema: GenomeSchema, ctx: String) -> Array:
+	var out := []
+	if not d is Array:
+		errors.append("%s: muss eine Liste sein" % ctx)
+		return out
+	var total := 0.0
+	for i in d.size():
+		var m = d[i]
+		var mctx := "%s[%d]" % [ctx, i]
+		if not m is Dictionary:
+			errors.append("%s: muss ein Objekt sein" % mctx)
+			continue
+		for key in m:
+			if not MORPH_KEYS.has(key):
+				errors.append("%s: unbekanntes Feld '%s' (erlaubt: %s)" % [mctx, key, ", ".join(MORPH_KEYS)])
+		var p := float(m.get("p", -1.0))
+		if p < 0.0 or p > 1.0:
+			errors.append("%s: 'p' (Häufigkeit 0..1) fehlt oder ist ungültig" % mctx)
+			continue
+		total += p
+		out.append({
+			"name": str(m.get("name", "morph_%d" % i)),
+			"p": p,
+			"set": _parse_values(m.get("set", {}), schema, mctx + ".set", Ranks.CLASS, false),
+			"shift": _parse_numbers(m.get("shift", {}), schema, mctx + ".shift", Ranks.CLASS, false),
+			"scale": _parse_numbers(m.get("scale", {}), schema, mctx + ".scale", Ranks.CLASS, false),
+		})
+	if total > 1.0001:
+		errors.append("%s: Summe der Häufigkeiten ist %.2f (> 1)" % [ctx, total])
 	return out
 
 

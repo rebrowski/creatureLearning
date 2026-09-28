@@ -10,8 +10,9 @@ extends RefCounted
 ##      Gene mit varies_until gröber als der Rang bleiben unverändert,
 ##      Gene aus `fixed` (dieses Taxon oder Vorfahren) bekommen keinen Zufall.
 ##      Danach ggf. Konvergenz Richtung Vorbild-Taxon.
-##   3. Individuelles Rauschen (Rang INDIVIDUAL).
-##   4. Geschlechts- bzw. Altersdimorphismus.
+##   3. Individuelles Rauschen (Rang INDIVIDUAL; Streuung ggf. aus individual_variance).
+##   4. Polymorphismus: jedes Taxon der Abstammung mit `morphs` würfelt eine Variante.
+##   5. Geschlechts- bzw. Altersdimorphismus.
 ## Mittel-Genome werden gecacht; nach Änderung der Einstellungen clear_cache() aufrufen.
 
 var taxonomy: Taxonomy
@@ -76,14 +77,29 @@ func create_individual(species_id: String, index: int, sex := "", age := "", juv
 	ind.age = age if age != "" else ("juvenile" if _rng.randf() < juvenile_chance else "adult")
 
 	var genome := mean_genome(species_id).copy()
-	var sigma := settings.sigma(Ranks.INDIVIDUAL)
-	var switch_p := sigma * settings.enum_switch_factor
 	var fixed := fixed_genes(species_id)
+	var ind_var := individual_variances(species_id)
 	for g in taxonomy.schema.genes:
 		if g.varies_until < Ranks.INDIVIDUAL or fixed.has(g.id):
 			continue
+		var sigma := settings.sigma(Ranks.INDIVIDUAL)
+		if ind_var.has(g.id) or ind_var.has("*"):
+			sigma = float(ind_var.get(g.id, ind_var.get("*"))) * settings.get_spread(Ranks.INDIVIDUAL)
 		RngUtil.reseed(_rng, [taxonomy.base_seed, species_id, index, g.id])
-		genome.values[g.id] = g.mutate(genome.get_value(g.id), sigma, switch_p, _rng)
+		genome.values[g.id] = g.mutate(genome.get_value(g.id), sigma, sigma * settings.enum_switch_factor, _rng)
+
+	for t in taxonomy.lineage(species_id):
+		if t.morphs.is_empty():
+			continue
+		RngUtil.reseed(_rng, [taxonomy.base_seed, species_id, index, "morph", t.id])
+		var r := _rng.randf()
+		var acc := 0.0
+		for m in t.morphs:
+			acc += m.p
+			if r < acc:
+				ind.morphs[t.id] = m.name
+				Dimorphism.apply(genome, m, 1.0)
+				break
 
 	var stage := Dimorphism.stage_for(ind.sex, ind.age)
 	Dimorphism.apply(genome, Dimorphism.effective_rules(taxonomy, species_id, stage), settings.dimorphism_strength)
@@ -96,6 +112,17 @@ func create_group(species_id: String, count: int, first_index := 0, juvenile_cha
 	var out: Array[Individual] = []
 	for n in count:
 		out.append(create_individual(species_id, first_index + n, "", "", juvenile_chance))
+	return out
+
+
+## Individuen-Streuung pro Gen entlang der Abstammung (feinster Eintrag gewinnt,
+## "*" = alle übrigen Gene).
+func individual_variances(taxon_id: String) -> Dictionary:
+	var out := {}
+	for t in taxonomy.lineage(taxon_id):
+		if t.individual_variance.has("*"):
+			out.clear()  # feinerer Platzhalter ersetzt gröbere Einzelwerte
+		out.merge(t.individual_variance, true)
 	return out
 
 
@@ -124,9 +151,10 @@ func _apply_taxon(genome: Genome, taxon: Taxon) -> void:
 		if fixed.has(g.id):
 			genome.values[g.id] = value
 			continue
-		var sigma: float = taxon.variance[g.id] * spread if taxon.variance.has(g.id) else base_sigma
+		var own = taxon.variance.get(g.id, taxon.variance.get("*"))
+		var sigma: float = float(own) * spread if own != null else base_sigma
 		var switch_p: float = sigma * settings.enum_switch_factor
-		if taxon.variance.has(g.id) and g.type == GeneDef.Type.ENUM:
+		if own != null and g.type == GeneDef.Type.ENUM:
 			switch_p = sigma  # bei ENUM ist variance direkt die Wechselwahrscheinlichkeit
 		RngUtil.reseed(_rng, [taxonomy.base_seed, taxon.id, g.id])
 		genome.values[g.id] = g.mutate(value, sigma, switch_p, _rng)

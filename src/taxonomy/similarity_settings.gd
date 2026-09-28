@@ -10,7 +10,7 @@ extends Resource
 ## innerhalb einer Art.
 
 ## Standard-Streuung pro Rang (Klasse .. Individuum), Bruchteil des Wertebereichs.
-@export var base_variance: PackedFloat32Array = [0.2, 0.12, 0.08, 0.06, 0.04, 0.02]
+@export var base_variance: PackedFloat32Array = [0.2, 0.12, 0.08, 0.06, 0.04, 0.03]
 ## Regler pro Rang (Klasse .. Individuum).
 @export var spread: PackedFloat32Array = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 ## 0 = Männchen/Weibchen/Jungtiere sehen gleich aus, 1 = wie definiert.
