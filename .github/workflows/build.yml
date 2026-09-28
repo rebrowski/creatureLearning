@@ -1,0 +1,121 @@
+# Testet das Projekt, exportiert Web-Version und Android-APK und veröffentlicht
+# die Web-Version auf GitHub Pages (nur vom Standard-Branch).
+# Einrichtung und Hintergründe: docs/export.md
+name: Build
+
+on:
+  push:
+    branches: [main, master, "claude/**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: "4.4.1"
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Godot und Export-Vorlagen aus dem Cache
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/godot
+            ~/.local/share/godot/export_templates
+          key: godot-${{ env.GODOT_VERSION }}-web-android-v1
+
+      - name: Godot und Export-Vorlagen herunterladen
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          base=https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable
+          mkdir -p ~/godot
+          curl -sSL -o godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip -d ~/godot
+          mv ~/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 ~/godot/godot
+          curl -sSL -o templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          dir=~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          mkdir -p "$dir"
+          unzip -q -j templates.tpz templates/version.txt templates/web_nothreads_release.zip \
+            templates/android_release.apk templates/android_debug.apk -d "$dir"
+          rm godot.zip templates.tpz
+
+      - name: Godot in den PATH
+        run: echo "$HOME/godot" >> "$GITHUB_PATH"
+
+      - name: Projekt importieren
+        run: godot --headless --import
+
+      - name: Unit-Tests (GUT)
+        run: godot --headless -s addons/gut/gut_cmdln.gd
+
+      - name: Web exportieren
+        run: |
+          mkdir -p build/web
+          godot --headless --export-release "Web" build/web/index.html
+          test -f build/web/index.wasm
+
+      - name: Android-Export vorbereiten (SDK liegt auf dem Runner, Debug-Schlüssel)
+        run: |
+          keytool -genkeypair -keystore "$RUNNER_TEMP/debug.keystore" -storepass android -keypass android \
+            -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          mkdir -p ~/.config/godot
+          cat > ~/.config/godot/editor_settings-4.4.tres <<SETTINGS
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/android_sdk_path = "$ANDROID_SDK_ROOT"
+          export/android/java_sdk_path = "$JAVA_HOME_17_X64"
+          export/android/debug_keystore = "$RUNNER_TEMP/debug.keystore"
+          export/android/debug_keystore_user = "androiddebugkey"
+          export/android/debug_keystore_pass = "android"
+          SETTINGS
+
+      - name: Android exportieren (Debug-APK)
+        run: |
+          mkdir -p build/android
+          godot --headless --export-debug "Android" build/android/creature-learning.apk
+          test -f build/android/creature-learning.apk
+
+      - name: APK bereitstellen
+        uses: actions/upload-artifact@v4
+        with:
+          name: creature-learning-android
+          path: build/android/creature-learning.apk
+
+      - name: Web-Version bereitstellen
+        uses: actions/upload-artifact@v4
+        with:
+          name: creature-learning-web
+          path: build/web
+
+      - name: Web-Version für GitHub Pages vorbereiten
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+  pages:
+    # GitHub erlaubt Pages-Deployments standardmäßig nur vom Standard-Branch.
+    if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

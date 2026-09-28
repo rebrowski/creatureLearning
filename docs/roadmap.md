@@ -57,5 +57,8 @@ Auswertung mit Hinweisen ohne Lösung; neue Gruppenmitglieder inklusive Doppelg�
   Journal (Markierungen, eigene Gruppen, Notizen), erledigte Aufgaben, freigeschaltete
   Kreaturen, Tageszeit/Wetter, Einstellungen.
 
-## M6 – Android
-Export-Preset, Profiling auf dem Gerät (Ziel: 15–20 Kreaturen bei 60 FPS), LOD-Feintuning.
+## M6 – Export und Leistung ✅ (Messung auf echten Geräten steht aus)
+Presets für Web (ohne Threads, PWA), Android (arm64) und iOS (vorbereitet, Build auf dem Mac);
+GitHub-Actions-Workflow: Tests, Web-Export, Android-APK, GitHub Pages; Grafikstufen,
+Leistungsanzeige und Leistungstest im Spiel. Siehe docs/export.md.
+Offen: Messung auf Mittelklasse-Handy (Ziel: 15–20 Kreaturen bei 60 FPS), danach LOD-Feintuning.

@@ -3,7 +3,7 @@
 Godot-4-Spiel für Android: Der Spieler lebt in einer Gruppe prozedural erzeugter Kreaturen, erschließt
 deren Art und Fähigkeiten durch Beobachtung und weist ihnen in kurzen Aufgaben passende Rollen zu.
 
-**Stand: Meilenstein 5** – Genom und Taxonomie (M1), prozedurale 3D-Kreaturen mit IK-Laufen (M2), Waldwelt mit Spatial Gardener, Tageszeit und Wetter (M3), Fähigkeiten und sichtbares Verhalten (M4), Journal, Spielstand und spielbare Aufgaben (M5).
+**Stand: Meilenstein 6** – Genom und Taxonomie (M1), prozedurale 3D-Kreaturen mit IK-Laufen (M2), Waldwelt mit Spatial Gardener, Tageszeit und Wetter (M3), Fähigkeiten und sichtbares Verhalten (M4), Journal, Spielstand und spielbare Aufgaben (M5), Export für Web, Android und iOS (M6).
 
 | Meilenstein | Inhalt | Status |
 |---|---|---|
@@ -12,7 +12,7 @@ deren Art und Fähigkeiten durch Beobachtung und weist ihnen in kurzen Aufgaben 
 | 3 | Welt mit Spatial Gardener, Touch-Kamera | ✅ |
 | 4 | Fähigkeiten, Kontext, sichtbares Verhalten | ✅ |
 | 5 | Journal, erste Aufgabe | ✅ |
-| 6 | Android-Export, Performance | – |
+| 6 | Export (Web, Android, iOS), Performance | ✅ (Gerätemessung offen) |
 
 ![Waldwelt: Kreaturen-Karte mit Einschätzung der Fähigkeiten](docs/images/creature_card.png)
 
@@ -21,6 +21,13 @@ deren Art und Fähigkeiten durch Beobachtung und weist ihnen in kurzen Aufgaben 
 ![Kreaturen-Labor: alle Baupläne in Reihe aufgestellt](docs/images/creature_lab.png)
 
 ![Debug-Viewer: Konvergenzpaar Stelzus fluvialis / Mimula fallax](docs/images/taxonomy_viewer.png)
+
+## Spielen
+
+- **Browser / iPhone:** Web-Version über GitHub Pages (nach Einrichtung, siehe `docs/export.md`)
+  oder lokal exportieren. Im Handy-Browser „Zum Home-Bildschirm“ hinzufügen.
+- **Android:** Debug-APK aus dem GitHub-Actions-Lauf (*Artifacts*) herunterladen und installieren.
+- **iOS nativ:** Preset vorbereitet, Build braucht einen Mac mit Xcode.
 
 ## Voraussetzungen
 
@@ -89,6 +96,7 @@ xvfb-run -s "-screen 0 1280x720x24" godot --rendering-driver opengl3 \
 - Fähigkeiten, Kontext, Verhalten, Polymorphismus, Trennschärfe: [`docs/abilities_format.md`](docs/abilities_format.md) → `data/abilities/`
 - Welt-Layout, Vegetationsregeln, Startgruppe: [`docs/world_format.md`](docs/world_format.md) → `data/world/`
 - Spatial Gardener (Version, Einrichtung, Build-Tool): [`docs/spatial_gardener.md`](docs/spatial_gardener.md)
+- Export (Web, Android, iOS), CI, Leistung messen: [`docs/export.md`](docs/export.md)
 - Mesh, Skelett, Gangarten, LOD, Performance: [`docs/creature_rendering.md`](docs/creature_rendering.md)
 - Architektur und Module: [`docs/architecture.md`](docs/architecture.md)
 - Roadmap mit allen Meilensteinen: [`docs/roadmap.md`](docs/roadmap.md)
@@ -110,7 +118,7 @@ src/mesh/              Mesh-Builder und Shader
 src/locomotion/        IK, Schrittmuster, Schrittplaner
 src/abilities/         Fähigkeitskatalog und -profil
 src/behaviors/         Verhaltensgehirn, Verhaltensweisen, Effekte
-src/game/              Spielstand, Gruppe, Rekrutierung
+src/game/              Spielstand, Gruppe, Rekrutierung, Grafikstufen, Leistungsmessung
 src/journal/           Beobachtungs-Journal
 src/tasks/             Aufgaben: Format, Bewertung, Wiedergabe
 src/ui/                Karte, Journal, Aufgabenwahl, Auswertung
@@ -119,4 +127,7 @@ src/world/             Layout, Gelände, Vegetation, Tageszeit, Wetter, Kontext,
 src/debug/             Menü, Viewer, Glyphen, Vergleich, Labor
 tests/unit/            GUT-Tests
 tools/                 Hilfsskripte (Screenshot, Benchmark, Welt-Build)
+assets/fonts/          Projektschrift DejaVu Sans (freie Lizenz)
+.github/workflows/     CI: Tests, Web- und Android-Export, GitHub Pages
+export_presets.cfg     Export-Presets Web, Android, iOS
 ```

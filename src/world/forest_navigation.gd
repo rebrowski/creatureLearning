@@ -29,11 +29,17 @@ func bake_from_terrain() -> void:
 	NavigationServer3D.parse_source_geometry_data(nm, source, terrain)
 	_add_stream_obstruction(source)
 	var start := Time.get_ticks_msec()
-	NavigationServer3D.bake_from_source_geometry_data_async(nm, source, func():
+	var done := func():
 		navigation_mesh = nm
 		is_baked = true
 		bake_msec = Time.get_ticks_msec() - start
-		baked.emit())
+		baked.emit()
+	if OS.has_feature("threads"):
+		NavigationServer3D.bake_from_source_geometry_data_async(nm, source, done)
+	else:
+		# Web-Export ohne Threads: synchron backen (~0.1–0.3 s beim Start)
+		NavigationServer3D.bake_from_source_geometry_data(nm, source)
+		done.call_deferred()
 
 
 func _add_stream_obstruction(source: NavigationMeshSourceGeometryData3D) -> void:

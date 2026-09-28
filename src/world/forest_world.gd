@@ -40,6 +40,10 @@ var members: Dictionary = {}
 var selected: Creature
 var debug_mode := false
 var saving_enabled := true
+var graphics_level := "high"
+var perf := PerfMonitor.new()
+## Vorübergehende Kreaturen des Leistungstests (nicht gespeichert).
+var test_creatures: Array[Creature] = []
 
 var _status: Label
 var _info: Label
@@ -80,6 +84,8 @@ func _ready() -> void:
 	if not game.is_valid():
 		push_error("\n".join(game.errors))
 		return
+	graphics_level = GraphicsSettings.load_level()
+	GraphicsSettings.apply(graphics_level, get_node_or_null("Sun"), get_viewport())
 	day_night.hour = game.hour
 	weather.set_state(game.weather)
 	catalog = AbilityCatalog.load_file(game.schema)
@@ -119,14 +125,21 @@ func _physics_process(delta: float) -> void:
 
 
 func _process(_delta: float) -> void:
+	perf.tick()
 	if game == null or _status == null:
 		return
 	var h := day_night.hour
+	var extra := ""
+	if debug_mode:
+		var st := perf.stats()
+		var lod := PerfMonitor.lod_counts(creatures)
+		extra = "\nFPS %d · Frame %.1f ms (95 %%: %.1f, max %.1f) · Draw-Calls %d · Grafik %s\nLOD voll %d · reduziert %d · eingefroren %d · aus %d · Licht %d %% · Nässe %d %%" % [
+			Engine.get_frames_per_second(), st.avg, st.p95, st.max,
+			Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), GraphicsSettings.LABELS[graphics_level],
+			lod[0], lod[1], lod[2], lod[3], int(day_night.light_level() * 100.0), int(weather.wetness * 100.0)]
 	_status.text = "%02d:%02d %s · Wetter %s · %d Kreaturen%s" % [
 		int(h), int(fposmod(h, 1.0) * 60.0), PHASE_LABELS[day_night.phase()], WEATHER_LABELS[weather.state],
-		creatures.size(), ("\nFPS %d · Draw-Calls %d · Licht %d %% · Nässe %d %%" % [Engine.get_frames_per_second(),
-		Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), int(day_night.light_level() * 100.0),
-		int(weather.wetness * 100.0)]) if debug_mode else ""]
+		creatures.size() - test_creatures.size(), extra]
 	if selected != null and members.has(selected):
 		_info.text = "%s: %s" % [members[selected].name, selected.behavior_label if selected.behavior_label != "" else "…"]
 	else:
@@ -315,12 +328,21 @@ func _build_hud() -> void:
 	_time_button = _button(bar, "Zeit ×1", _cycle_time)
 	_weather_button = _button(bar, "Wetter: auto", _cycle_weather)
 	var dbg := _button(bar, "Debug", Callable())
+	var gfx := _button(bar, "Grafik: " + GraphicsSettings.LABELS[graphics_level], Callable())
+	gfx.pressed.connect(func():
+		graphics_level = GraphicsSettings.next_level(graphics_level)
+		GraphicsSettings.save_level(graphics_level)
+		GraphicsSettings.apply(graphics_level, get_node_or_null("Sun"), get_viewport())
+		gfx.text = "Grafik: " + GraphicsSettings.LABELS[graphics_level])
+	var perf_test := _button(bar, "+5 Test", func(): add_test_creatures(5))
 	var reset := _button(bar, "Neues Spiel", debug_new_game)
-	reset.visible = false
+	for b in [gfx, perf_test, reset]:
+		b.visible = false
 	dbg.pressed.connect(func():
 		debug_mode = not debug_mode
 		dbg.text = "Debug: an" if debug_mode else "Debug"
-		reset.visible = debug_mode
+		for b in [gfx, perf_test, reset]:
+			b.visible = debug_mode
 		if selected != null:
 			_select(selected))
 	_info = _outlined_label()
@@ -410,6 +432,17 @@ func debug_new_game() -> void:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(GameState.DEFAULT_PATH))
 	saving_enabled = false
 	get_tree().reload_current_scene()
+
+
+## Leistungstest: vorübergehende Kreaturen (weitere Arten der Taxonomie), nicht gespeichert.
+func add_test_creatures(count: int) -> void:
+	var all := game.taxonomy.species()
+	for n in count:
+		var sp: Taxon = all[(test_creatures.size() + n) % all.size()]
+		var ind := game.factory.create_individual(sp.id, 1000 + test_creatures.size(), "", "adult")
+		var m := GroupMember.from_individual(ind, "Test %d" % (test_creatures.size() + 1))
+		var c := _spawn_member(m, _spawn_point(terrain.layout, creatures.size() + 50))
+		test_creatures.append(c)
 
 
 ## Kreatur Nummer i auswählen (Screenshots).
