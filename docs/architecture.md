@@ -18,14 +18,15 @@ Abhängigkeiten zeigen nur nach unten. Die beiden unteren Schichten sind **node-
 
 ```
 tasks / journal / progression         (M5)  Spiellogik
-abilities + behaviors  <- world_context (M4/M3) Fähigkeiten, Kontext (Zeit, Wetter, Terrain)
+abilities + behaviors                 (M4)  Fähigkeiten, sichtbares Verhalten
+world: terrain, weather, context, nav (M3)  Waldwelt, Tageszeit, Wetter, Zonen
 creature - mesh - locomotion - camera (M2)  Darstellung; kennt nur Genome
 taxonomy - individual_factory         (M1)  Taxa, Vererbung, Dimorphismus, Konvergenz
 genome - genome_schema - distance     (M1)  Gen-Definitionen, Werte, Distanz
 core                                  (M1)  Ränge, Seeds, JSON
 ```
 
-## Module (Stand M2)
+## Module (Stand M3)
 
 | Datei | Aufgabe |
 |---|---|
@@ -48,7 +49,16 @@ core                                  (M1)  Ränge, Seeds, JSON
 | `src/locomotion/leg_ik.gd`, `gait_table.gd`, `creature_locomotion.gd` | IK, Schrittmuster, Schrittplaner und Körperhaltung. |
 | `src/creature/creature.gd`, `creature_lod.gd` | Node3D einer Kreatur: Bewegung, Bodenhaftung, LOD. |
 | `src/creature/wander_brain.gd` | Platzhalter-Verhalten (zufällige Ziele) bis M4. |
-| `src/camera/orbit_camera.gd` | Orbit-Kamera mit Maus und Touch. |
+| `src/camera/orbit_camera.gd` | Touch-Kamera: drehen, zoomen, verschieben, Zwei-Finger-Drehung, Grenzen, folgt Gelände/Kreatur. |
+| `src/world/forest_layout.gd` | Layout aus `forest.json`: Höhe und Zone an jeder Position (reine Logik). |
+| `src/world/forest_terrain.gd` | @tool: Gelände, Wasser, Felsen, Fruchtbäume aus dem Layout. |
+| `src/world/low_poly.gd`, `vegetation_meshes.gd`, `vegetation_scatter.gd` | Low-Poly-Baukasten, Platzhalter-Pflanzen, reproduzierbare Verteilung. |
+| `src/world/fruit_tree.gd` | Baum mit Früchten in bestimmter Höhe (für Aufgaben). |
+| `src/world/day_night_cycle.gd`, `weather.gd` | Tageszeit und Wetter. |
+| `src/world/world_context.gd` | Kontextabfrage für Fähigkeiten/Verhalten. |
+| `src/world/forest_navigation.gd`, `src/creature/nav_wander_brain.gd` | Navmesh zur Laufzeit, Umherstreifen mit Abstandhalten. |
+| `src/world/forest_world.gd` | Wurzel der Waldszene, Startgruppe, HUD. |
+| `tools/build_forest.gd` | Erzeugt `forest.tscn` inkl. Spatial-Gardener-Vegetation. |
 | `src/debug/*` | Menü, Viewer, 2D-Glyphen, Vergleich, Kreaturen-Labor, Menü-Knopf (Autoload `DebugNav`). |
 | `tools/screenshot.gd` | Szene rendern und als PNG speichern (für visuelle Prüfung). |
 | `tools/benchmark_creatures.gd` | CPU-Zeit der Kreaturen messen. |
@@ -67,10 +77,8 @@ taxonomy.json ──► TaxonomyLoader ──► Taxonomy ──► IndividualFa
 Später liest der Mesh-Builder (M2) nur `Individual.genome`, die Fähigkeiten (M4) zusätzlich
 unsichtbare Gene aus demselben Schema – vererbt über denselben Mechanismus.
 
-## Ausblick: Spatial Gardener (M3)
+## Welt
 
-Geprüft am 28.09.2026: Releases v1.4.1 (Godot 4.4) und v1.4.0 (Godot 4.3, Breaking Changes
-gegenüber 1.3.x, neues LOD-System). Einrichtung: Ordner `addons/dreadpon.spatial_gardener/` aus
-dem Release nach `res://addons/` kopieren und unter Projekt → Projekteinstellungen → Plugins
-aktivieren. Mobile-Eignung ist nicht dokumentiert – wird in M3 mit Low-Poly-Platzhaltern und
-Distanz-Culling gemessen. Details folgen in `docs/spatial_gardener.md`.
+Details: [`world_format.md`](world_format.md), Vegetation: [`spatial_gardener.md`](spatial_gardener.md).
+Abweichung vom ursprünglichen Plan: Zonen werden analytisch aus dem Layout berechnet statt über
+Area3D-Knoten – schneller, testbar und ohne doppelte Datenhaltung.

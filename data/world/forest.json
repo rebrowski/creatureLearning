@@ -1,0 +1,48 @@
+{
+  "format": "forest_layout/1",
+  "name": "Waldlichtung am Bach",
+  "notes": "Layout der Waldwelt. Felder: docs/world_format.md. Koordinaten in Metern, (0,0) = Weltmitte, x nach rechts, z nach vorne (Süden).",
+  "seed": 11,
+  "size": [64, 64],
+  "terrain": {
+    "noise_amplitude": 0.5,
+    "noise_scale": 0.07,
+    "hills": [
+      { "pos": [-20, -18], "radius": 14, "height": 4.0 },
+      { "pos": [22, -20], "radius": 12, "height": 3.0 },
+      { "pos": [20, 20], "radius": 10, "height": 2.2 },
+      { "pos": [-24, 20], "radius": 9, "height": 1.6 }
+    ]
+  },
+  "stream": {
+    "points": [[-34, -8], [-18, -4], [-6, 4], [6, 6], [18, 2], [34, 8]],
+    "width": 3.0,
+    "depth": 0.9,
+    "bank": 2.0
+  },
+  "clearing": { "pos": [-4, -10], "radius": 8, "flatten": 0.85 },
+  "rocks": [
+    { "pos": [4, -14], "size": 1.8, "climbable": true },
+    { "pos": [-13, -12], "size": 1.1 },
+    { "pos": [10, 12], "size": 2.4, "climbable": true },
+    { "pos": [-2, 12], "size": 0.9 },
+    { "pos": [16, -6], "size": 1.4 },
+    { "pos": [-20, 6], "size": 1.6, "climbable": true },
+    { "pos": [2, 4.5], "size": 0.8 }
+  ],
+  "fruit_trees": [
+    { "pos": [-10, -4], "height": 6.0, "fruits": 4, "fruit_height": 4.5 },
+    { "pos": [6, -18], "height": 7.0, "fruits": 3, "fruit_height": 5.2 },
+    { "pos": [12, 10], "height": 5.5, "fruits": 5, "fruit_height": 3.8 }
+  ],
+  "spawn": { "pos": [-4, -10], "radius": 6 },
+  "vegetation": [
+    { "plant": "tree_pine", "density": 0.018, "zones": ["forest"], "min_spacing": 3.0, "scale": [0.8, 1.4], "clear_radius": 2.5 },
+    { "plant": "tree_round", "density": 0.012, "zones": ["forest"], "min_spacing": 3.5, "scale": [0.8, 1.3], "clear_radius": 2.5 },
+    { "plant": "bush", "density": 0.05, "zones": ["forest", "bank"], "min_spacing": 1.2, "scale": [0.7, 1.4], "clear_radius": 1.2 },
+    { "plant": "fern", "density": 0.09, "zones": ["forest"], "min_spacing": 0.6, "scale": [0.7, 1.3], "clear_radius": 0.8 },
+    { "plant": "grass", "density": 0.6, "zones": ["clearing", "forest", "bank"], "min_spacing": 0.0, "scale": [0.7, 1.5], "clear_radius": 0.5 },
+    { "plant": "reed", "density": 0.5, "zones": ["bank"], "min_spacing": 0.0, "scale": [0.8, 1.3], "clear_radius": 0.4 },
+    { "plant": "stone", "density": 0.02, "zones": ["forest", "bank", "clearing"], "min_spacing": 0.8, "scale": [0.5, 1.6], "clear_radius": 0.8 }
+  ]
+}

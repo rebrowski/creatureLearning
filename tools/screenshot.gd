@@ -12,6 +12,8 @@ extends SceneTree
 ##   call=<methode>      Methode ohne Argumente am Szenen-Root aufrufen (z. B. call=lineup)
 ##   follow=<n>,<abstand> Labor: Kamera folgt Kreatur Nummer n
 ##   wait=<frames>       zusätzlich warten
+##   set=<pfad>:<eigenschaft>:<wert>   Eigenschaft eines Kind-Knotens setzen (Wert per str_to_var)
+##   callp=<pfad>:<methode>:<arg>      Methode eines Kind-Knotens mit einem Argument aufrufen
 
 func _init() -> void:
 	var args := OS.get_cmdline_user_args()
@@ -51,6 +53,12 @@ func _apply(node: Node, action: String) -> void:
 			node._fill_tree()
 		"call":
 			node.call(parts[1])
+		"set":
+			var p := parts[1].split(":", true, 2)
+			node.get_node(p[0]).set(p[1], str_to_var(p[2]))
+		"callp":
+			var p := parts[1].split(":", true, 2)
+			node.get_node(p[0]).call(p[1], str_to_var(p[2]))
 		"follow":
 			var f := parts[1].split(",")
 			node._select(node.creatures[int(f[0])])

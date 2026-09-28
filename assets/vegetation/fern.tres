@@ -1,0 +1,16 @@
+[gd_resource type="ArrayMesh" load_steps=2 format=4]
+
+[ext_resource type="Material" path="res://assets/vegetation/vegetation_material.tres" id="1_ttjp6"]
+
+[resource]
+resource_name = "fern"
+_surfaces = [{
+"aabb": AABB(-0.407308, 0, -0.41057, 0.817286, 0.75, 0.780929),
+"attribute_data": PackedByteArray("KGYo/yhmKP8oZij/LXIt/y1yLf8tci3/M38z/zN/M/8zfzP/KGYo/yhmKP8oZij/LXIt/y1yLf8tci3/M38z/zN/M/8zfzP/KGYo/yhmKP8oZij/LXIt/y1yLf8tci3/M38z/zN/M/8zfzP/KGYo/yhmKP8oZij/LXIt/y1yLf8tci3/M38z/zN/M/8zfzP/KGYo/yhmKP8oZij/LXIt/y1yLf8tci3/M38z/zN/M/8zfzP/KGYo/yhmKP8oZij/LXIt/y1yLf8tci3/M38z/zN/M/8zfzP/KGYo/yhmKP8oZij/LXIt/y1yLf8tci3/M38z/zN/M/8zfzP/"),
+"format": 34359738383,
+"material": ExtResource("1_ttjp6"),
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 63,
+"vertex_data": PackedByteArray("ureQPAAAAACa1iK+OsodPjQz0z57wqK9ureQvAAAAACa1iI+ureQvAAAAACa1iI+OsodPjQz0z57wqK9EhUIPjQz0z5fDeQ9OsodPjQz0z57wqK9pOjRPgAAQD/WjDo9EhUIPjQz0z5fDeQ9JhoTPgAAAADVSJC9wFsZPjQz0z4Y57I9JhoTvgAAAADVSJA9JhoTvgAAAADVSJA9wFsZPjQz0z4Y57I9QFC5vDQz0z6mBTA+wFsZPjQz0z4Y57I94/05PgAAQD+2n70+QFC5vDQz0z6mBTA+G+EOPgAAAADYXKA9AAZWPDQz0z76CDE+G+EOvgAAAADYXKC9G+EOvgAAAADYXKC9AAZWPDQz0z76CDE+JxQevjQz0z6JoqE9AAZWPDQz0z76CDE+r7dOvgAAQD8tLrg+JxQevjQz0z6JoqE9vU7PPAAAAAAaxyE+W24CvjQz0z4j5vA9vU7PvAAAAAAaxyG+vU7PvAAAAAAaxyG+W24CvjQz0z4j5vA994YhvjQz0z4dXpO9W24CvjQz0z4j5vA9qIrQvgAAQD/AnYU994YhvjQz0z4dXpO9pdLDvQAAAACTXQM+okgxvjQz0z6ofBi8pdLDPQAAAACTXQO+pdLDPQAAAACTXQO+okgxvjQz0z6ofBi8+ShvvTQz0z5IKye+okgxvjQz0z6ofBi8oFapvgAAQD+JbXy++ShvvTQz0z5IKye+yRIjvgAAAABSS308BELgvTQz0z5Upgm+yRIjPgAAAABSS328yRIjPgAAAABSS328BELgvTQz0z5Upgm+Rh6nPTQz0z6UpRy+BELgvTQz0z5Upgm+jEEjvQAAQD84NtK+Rh6nPTQz0z6UpRy+bqW+vQAAAABuQQW+pTF8PTQz0z6y9yW+bqW+PQAAAABuQQU+bqW+PQAAAABuQQU+pTF8PTQz0z6y9yW+rG8xPjQz0z6A8sG7pTF8PTQz0z6y9yW+WMarPgAAQD9AwXW+rG8xPjQz0z6A8sG7zh6FqLZsDLHMJravTmc+rs4ehai2bAyxzh6FqLZsDLHMJravTmc+rqIqKrMhZCKtzCa2r05nPq6ONf+8LVn9qqIqKrMhZCKtiRqc3uRMu5TOIQDhP0VMlYkanN7kTLuUiRqc3uRMu5TOIQDhP0VMlVslK+KAQdaVziEA4T9FTJWuL5HlwzZQmFslK+KAQdaV0eVl21+xTJSd3vzdV7XtjdHlZdtfsUyU0eVl21+xTJSd3vzdV7XtjRfbQN+Fti2Jnd783Ve17Y3U0PDiOC60jBfbQN+Fti2JCuJ9q2GDGtAv2kKyS3k01ArifathgxrQCuJ9q2GDGtAv2kKyS3k01GbWhrXRc2DVL9pCskt5NNSUy9m+0mJS12bWhrXRc2DVqbqbmatNzLyYtrSghEkSwam6m5mrTcy8qbqbmatNzLyYtrSghEkSwZq0LqSISfTCmLa0oIRJEsHHrlmuU0cjx5q0LqSISfTCk4gRn75tDpjdhxmnNGihnZOIEZ++bQ6Yk4gRn75tDpjdhxmnNGihnYWH86r4ZFug3YcZpzRooZ2Nhue13VkJqIWH86r4ZFugWESrmWiYT6p9SMegOpCZp1hEq5lomE+qWESrmWiYT6p9SMegOpCZp4RKQ6QoiwOmfUjHoDqQmadzUHCuE3cwpIRKQ6QoiwOm")
+}]

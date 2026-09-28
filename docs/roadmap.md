@@ -16,7 +16,7 @@ GUT-Tests, Debug-Viewer mit 2D-Glyphen und Vergleichsmodus.
 - LOD nach Kameradistanz (volle IK / reduzierte IK ohne Raycasts / eingefroren + Low-Poly / aus).
 - Testszene `creature_lab.tscn` mit unebenem Boden, allen Bauplänen der Demo und FPS-Anzeige.
 
-## M3 – Welt
+## M3 – Welt ✅
 Waldszene (Terrain, Bach, Lichtung, Felsen, Bäume mit Früchten), Spatial Gardener 1.4.1 mit
 Low-Poly-Platzhaltern (`docs/spatial_gardener.md`), Tag/Nacht, Regen, Terrain-Zonen,
 Touch-Kamera, Kreaturen wandern per Navigation.

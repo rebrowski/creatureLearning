@@ -3,16 +3,18 @@
 Godot-4-Spiel für Android: Der Spieler lebt in einer Gruppe prozedural erzeugter Kreaturen, erschließt
 deren Art und Fähigkeiten durch Beobachtung und weist ihnen in kurzen Aufgaben passende Rollen zu.
 
-**Stand: Meilenstein 2** – Genom und Taxonomie (M1), prozedurale 3D-Kreaturen mit IK-Laufen und LOD (M2).
+**Stand: Meilenstein 3** – Genom und Taxonomie (M1), prozedurale 3D-Kreaturen mit IK-Laufen (M2), Waldwelt mit Spatial Gardener, Tageszeit und Wetter (M3).
 
 | Meilenstein | Inhalt | Status |
 |---|---|---|
 | 1 | Genom, Taxonomie, Tests, Debug-Viewer | ✅ |
 | 2 | Prozedurales Mesh, IK-Laufen | ✅ |
-| 3 | Welt mit Spatial Gardener, Touch-Kamera | – |
+| 3 | Welt mit Spatial Gardener, Touch-Kamera | ✅ |
 | 4 | Fähigkeiten, Kontext, sichtbares Verhalten | – |
 | 5 | Journal, erste Aufgabe | – |
 | 6 | Android-Export, Performance | – |
+
+![Waldwelt: Lichtung am Bach mit der Startgruppe](docs/images/forest.png)
 
 ![Kreaturen-Labor: alle Baupläne in Reihe aufgestellt](docs/images/creature_lab.png)
 
@@ -28,6 +30,10 @@ deren Art und Fähigkeiten durch Beobachtung und weist ihnen in kurzen Aufgaben 
 Projekt im Godot-Editor öffnen und F5 drücken. Das Startmenü (`scenes/main.tscn`) führt zu den
 Debug-Szenen; oben rechts gibt es überall einen „Menü“-Knopf (Esc / Android-Zurück geht auch).
 
+- **Waldwelt** (`scenes/world/forest.tscn`, M3): Gelände mit Bach, Lichtung, Felsen und
+  Fruchtbäumen, Spatial-Gardener-Vegetation, Tag/Nacht (8 min pro Tag), Wetter mit Regen,
+  16 Kreaturen der Startgruppe laufen per Navigation umher. HUD: Uhrzeit, Wetter, Licht, FPS;
+  Knöpfe für Zeitraffer, +3 h, Wetter, Folgen. Kamera wie im Labor, dazu Zwei-Finger-Drehen.
 - **Kreaturen-Labor** (`scenes/debug/creature_lab.tscn`, M2): alle Baupläne laufen als 3D-Kreaturen
   mit IK über unebenen Boden. Ziehen = drehen, Pinch/Mausrad = zoomen, zwei Finger/rechte
   Maustaste = verschieben, Antippen = Kreatur auswählen (Kamera folgt). Knöpfe: +5/−5,
@@ -49,6 +55,13 @@ godot --headless --import                      # einmalig bzw. nach neuen Klasse
 godot --headless -s addons/gut/gut_cmdln.gd    # nutzt .gutconfig.json (tests/unit)
 ```
 
+Waldszene neu erzeugen (nach Änderungen an `data/world/forest.json`):
+
+```bash
+godot --headless -s tools/build_forest.gd -- --regrow   # nur Vegetation
+godot --headless -s tools/build_forest.gd -- --force    # ganze Szene
+```
+
 CPU-Zeit der Kreaturen messen:
 
 ```bash
@@ -66,6 +79,8 @@ xvfb-run -s "-screen 0 1280x720x24" godot --rendering-driver opengl3 \
 
 - Gene: [`docs/genome_parameters.md`](docs/genome_parameters.md) → `data/genome_schema.json`
 - Taxa, Dimorphismus, Konvergenz, Generator: [`docs/taxonomy_format.md`](docs/taxonomy_format.md) → `data/taxonomies/`, `data/generator_presets/`
+- Welt-Layout, Vegetationsregeln, Startgruppe: [`docs/world_format.md`](docs/world_format.md) → `data/world/`
+- Spatial Gardener (Version, Einrichtung, Build-Tool): [`docs/spatial_gardener.md`](docs/spatial_gardener.md)
 - Mesh, Skelett, Gangarten, LOD, Performance: [`docs/creature_rendering.md`](docs/creature_rendering.md)
 - Architektur und Module: [`docs/architecture.md`](docs/architecture.md)
 - Roadmap mit allen Meilensteinen: [`docs/roadmap.md`](docs/roadmap.md)
@@ -74,6 +89,8 @@ xvfb-run -s "-screen 0 1280x720x24" godot --rendering-driver opengl3 \
 
 ```
 addons/gut/            Test-Framework
+addons/dreadpon.spatial_gardener/  Vegetations-Plugin (MIT)
+assets/vegetation/     erzeugte Low-Poly-Pflanzen (build_forest.gd)
 data/                  Schema, Taxonomien, Generator-Presets (JSON)
 docs/                  Dokumentation
 scenes/                Startmenü (main.tscn) und Debug-Szenen
@@ -83,8 +100,9 @@ src/taxonomy/          Taxonomie, Loader, Generator, Individuen, Dimorphismus, K
 src/creature/          BodyPlan, Rig, Creature-Node, LOD, Platzhalter-Verhalten
 src/mesh/              Mesh-Builder und Shader
 src/locomotion/        IK, Schrittmuster, Schrittplaner
-src/camera/            Orbit-Kamera
+src/camera/            Touch-/Orbit-Kamera
+src/world/             Layout, Gelände, Vegetation, Tageszeit, Wetter, Kontext, Navigation
 src/debug/             Menü, Viewer, Glyphen, Vergleich, Labor
 tests/unit/            GUT-Tests
-tools/                 Hilfsskripte (Screenshot, Benchmark)
+tools/                 Hilfsskripte (Screenshot, Benchmark, Welt-Build)
 ```
