@@ -122,6 +122,15 @@ func leg_reach() -> float:
 
 
 ## Hüfte im Kreatur-Raum in Ruhehaltung.
+## Radius der Grundfläche (Körper, Kopf, Füße) von oben gesehen – für Abstand halten.
+func footprint_radius() -> float:
+	var r := maxf(half_width, body_length * 0.5)
+	r = maxf(r, absf(head_center.z) + head_radius * 0.8)
+	for f in foot_homes:
+		r = maxf(r, Vector2(f.x, f.z).length())
+	return r * 0.85
+
+
 func hip_rest(leg: int) -> Vector3:
 	return hips[leg] + Vector3(0.0, body_center_y, 0.0)
 

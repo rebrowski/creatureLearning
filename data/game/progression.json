@@ -1,7 +1,14 @@
 {
-  "format": "progression/1",
-  "notes": "Wer nach einer gelösten Aufgabe neu dazukommt. lookalike_chance: Wahrscheinlichkeit, eine Art zu wählen, die einem Gruppenmitglied ähnlich sieht (kleinste Genom-Distanz zu einer vorhandenen Art), sonst zufällig. Arten, die schon oft vertreten sind, werden seltener gewählt.",
-  "recruits_per_success": 1,
+  "format": "progression/2",
+  "notes": "Guthaben und Anheuern (siehe docs/tasks_format.md, Abschnitt 'Guthaben und Anheuern'). Neue Kreaturen kommen nur noch über Anheuern dazu: Am Waldrand warten 'offers' Fremde. Preis = price_base + price_per_member × Gruppengröße (± price_jitter, Jungtiere × juvenile_factor), gerundet auf 5. Nach jeder Aufgabe wird auf 'offers' aufgefüllt. Belohnung: 'reward' aus der Aufgabe beim ersten Erfolg, danach × repeat_reward_factor. lookalike_chance: Wahrscheinlichkeit, dass ein Fremder einer Art angehört, die einem Gruppenmitglied ähnlich sieht (Doppelgänger).",
+  "currency": "Beeren",
+  "start_credits": 40,
+  "offers": 3,
+  "price_base": 20,
+  "price_per_member": 2,
+  "price_jitter": 5,
+  "juvenile_factor": 0.6,
+  "repeat_reward_factor": 0.5,
   "lookalike_chance": 0.7,
   "max_group_size": 20,
   "juvenile_chance": 0.15

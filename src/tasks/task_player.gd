@@ -18,6 +18,12 @@ signal step_started(text: String)
 signal finished(result: Dictionary)
 
 const STEP_TIMEOUT := 90.0
+## So lange bleibt die Ergebnis-Einblendung eines Schritts stehen (Sekunden).
+const RESULT_PAUSE := 1.6
+## So lange stehen ✓/✗ über den Beteiligten, bevor die Auswertung kommt.
+const MARKER_TIME := 2.5
+const OK_COLOR := Color(0.55, 1.0, 0.45)
+const FAIL_COLOR := Color(1.0, 0.5, 0.4)
 const FRUIT_COLOR := Color(0.85, 0.2, 0.15)
 
 var world: Node3D
@@ -50,6 +56,9 @@ func play(p_world: Node3D, p_task: TaskDef, p_result: Dictionary, creatures: Dic
 		if not running:
 			break
 		await _run_step(step)
+	if running:
+		await _show_markers()
+	step_started.emit("")
 	for c in actors.values():
 		if is_instance_valid(c):
 			_brain(c).paused = false
@@ -59,6 +68,32 @@ func play(p_world: Node3D, p_task: TaskDef, p_result: Dictionary, creatures: Dic
 			t.timeout.connect(item.queue_free)
 	running = false
 	finished.emit(result)
+
+
+## ✓ bzw. ✗ über jedem Beteiligten, damit sichtbar ist, wer es geschafft hat.
+func _show_markers() -> void:
+	for role_id in actors:
+		var c: Creature = actors[role_id]
+		if not is_instance_valid(c):
+			continue
+		var skipped: bool = result.roles.get(role_id, {}).get("skipped", false)
+		var ok := role_ok(role_id)
+		var mark := "–" if skipped else ("✓" if ok else "✗")
+		c.set_tag("%s %s" % [mark, _who(role_id, c)], OK_COLOR if ok else (Color(0.8, 0.8, 0.8) if skipped else FAIL_COLOR))
+	step_started.emit("Geschafft!" if result.success else "Nicht geschafft …")
+	await _pause(MARKER_TIME)
+
+
+## "Kletterer Tamo"
+func _who(role_id: String, c: Creature) -> String:
+	return "%s %s" % [task.role(role_id).get("name", role_id), _names.get(c, c.name)]
+
+
+func _pause(seconds: float) -> void:
+	var t := 0.0
+	while t < seconds:
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
 
 
 func role_ok(role_id: String) -> bool:
@@ -105,7 +140,7 @@ func _run_step(step: Dictionary) -> void:
 	if c == null or skipped:
 		return
 	var outcome := "success" if role_ok(role_id) else "fail"
-	var who: String = _names.get(c, c.name)
+	var who := _who(role_id, c)
 	world.camera.follow = c
 	world.camera.distance = clampf(world.camera.distance, 5.0, 9.0)
 	world.selected = c
@@ -116,8 +151,16 @@ func _run_step(step: Dictionary) -> void:
 			await _force_and_wait(c, "climb_tree", {"tree": tree, "forced_outcome": outcome})
 			if outcome == "success" and step.get("on_success", "") == "drop_fruit":
 				_drop_fruit(tree)
-				for i in 60:
-					await get_tree().physics_frame
+				step_started.emit("Die Frucht fällt herunter!")
+				await _pause(RESULT_PAUSE)
+			elif outcome != "success":
+				step_started.emit("%s kommt nicht hinauf." % who)
+				await _pause(RESULT_PAUSE)
+			# vom Stamm zurücktreten, damit der Weg für die anderen frei ist
+			var away := c.global_position - tree.global_position
+			away.y = 0.0
+			away = away.normalized() if away.length() > 0.01 else Vector3.BACK
+			await _walk(c, c.global_position + away * 2.5, true, 6.0)
 		"pick_up":
 			var item: Node3D = _items.get(str(step.get("item", "")))
 			if item == null:
@@ -130,9 +173,11 @@ func _run_step(step: Dictionary) -> void:
 			c.locomotion.pose_pitch = 0.0
 			c.held_item = item
 		"cross_stream":
-			step_started.emit("%s geht über den Bach …" % who)
+			step_started.emit("%s versucht, den Bach zu durchqueren …" % who)
 			var p: Vector3 = _place_of(step)
 			await _force_and_wait(c, "swim", {"crossing": Vector2(p.x, p.z), "forced_outcome": outcome})
+			step_started.emit(("%s ist drüben." if outcome == "success" else "%s schafft es nicht über den Bach.") % who)
+			await _pause(RESULT_PAUSE)
 		"drop":
 			c.drop_item()
 		"walk_to":
@@ -140,12 +185,17 @@ func _run_step(step: Dictionary) -> void:
 			var target: Vector3 = _place_of(step)
 			if outcome == "success":
 				await _walk(c, target, false)
+				step_started.emit("%s hat den Weg gefunden." % who)
 			else:
 				await _wander_lost(c)
+				step_started.emit("%s hat sich verlaufen." % who)
+			await _pause(RESULT_PAUSE)
 		"behavior":
 			var bid := str(step.get("behavior", "wander"))
 			step_started.emit("%s: %s" % [who, _behavior_label(bid)])
 			await _force_and_wait(c, bid, {"forced_outcome": outcome})
+			step_started.emit("%s: %s" % [who, "hat geklappt" if outcome == "success" else "hat nicht geklappt"])
+			await _pause(RESULT_PAUSE)
 		"follow":
 			var leader: Creature = actors.get(str(step.get("leader", "")))
 			if leader == null or not role_ok(role_id):
@@ -183,11 +233,11 @@ func _force_and_wait(c: Creature, behavior_id: String, p: Dictionary) -> void:
 
 
 ## Läuft über das Navmesh (bei `near` bis kurz vor das Ziel).
-func _walk(c: Creature, target: Vector3, near: bool) -> void:
+func _walk(c: Creature, target: Vector3, near: bool, timeout := STEP_TIMEOUT) -> void:
 	var mover := _brain(c).mover
 	mover.go(target)
 	var t := 0.0
-	while t < STEP_TIMEOUT:
+	while t < timeout:
 		if mover.step(get_physics_process_delta_time()) or (near and mover.distance_to_goal() < 0.9):
 			break
 		await get_tree().physics_frame

@@ -62,3 +62,23 @@ Presets für Web (ohne Threads, PWA), Android (arm64) und iOS (vorbereitet, Buil
 GitHub-Actions-Workflow: Tests, Web-Export, Android-APK, GitHub Pages; Grafikstufen,
 Leistungsanzeige und Leistungstest im Spiel. Siehe docs/export.md.
 Offen: Messung auf Mittelklasse-Handy (Ziel: 15–20 Kreaturen bei 60 FPS), danach LOD-Feintuning.
+
+## M7 – Rückmeldungen aus dem ersten Handy-Test
+
+Entscheidungen: kein Lohn, nur Anheuern mit Startguthaben; erfolgreiche Aufgaben
+bringen Guthaben. Startgruppe: 3 Arten à 2 Tiere, davon zwei Doppelgänger-Arten.
+
+- **A – Aufgabenablauf lesbar**: Schritt-Einblendung mit Rolle und Name;
+  Scheitern sichtbar (Nicht-Schwimmer zögert am Ufer und weicht zurück,
+  schwacher Schwimmer strampelt, treibt ab, verliert die Frucht, die davontreibt);
+  ✓/✗ über den Beteiligten am Ende. Fehler behoben: Schwimmhaltung kippte
+  senkrecht (Rückkopplung Paddel-Füße ↔ Körperneigung).
+- **B – Kein Durchlaufen**: Kreaturen halten Abstand nach Körpergröße
+  (Überlappung wird aufgelöst), weichen einander rechts aus und warten kurz.
+- **C – Handy-Bedienung**: automatische Oberflächen-Skalierung nach
+  Bildschirmgröße (+ Regler „Textgröße“), Namensschilder über den Kreaturen
+  (abschaltbar), kleinere Startgruppe, Hinweis „Aufgabe starten?“ nach 20 s ohne Eingabe.
+- **D – Guthaben und Anheuern**: Startguthaben, Belohnung pro Aufgabe (vor dem
+  Start sichtbar), fremde Kreaturen am Waldrand, die man beobachten und
+  anheuern kann; ersetzt das automatische Dazukommen. Werte in
+  `data/game/progression.json`.

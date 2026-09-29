@@ -3,8 +3,10 @@ extends PanelContainer
 ## Karte der ausgewählten Kreatur: Name, Markierung, eigene Gruppe,
 ## Einschätzung der Fähigkeiten, Notiz, letzte Beobachtungen.
 ## Die Art wird im Spiel nicht angezeigt (nur im Debug-Modus).
+## Für Fremde (show_stranger): Preis, „Anheuern“ und bisherige Beobachtungen.
 
 signal closed
+signal hire_requested(offer: GroupMember)
 
 var journal: Journal
 var catalog: AbilityCatalog
@@ -32,6 +34,36 @@ func show_member(p_member: GroupMember, p_journal: Journal, p_catalog: AbilityCa
 	debug_text = p_debug
 	visible = true
 	refresh()
+
+
+## Fremde Kreatur am Waldrand: title z. B. "Fremdling 2", problem = GameState.hire_problem().
+func show_stranger(offer: GroupMember, title: String, p_journal: Journal, problem: String, p_debug := "") -> void:
+	member = null
+	journal = p_journal
+	debug_text = p_debug
+	visible = true
+	UiUtil.clear(_box)
+	var head := HBoxContainer.new()
+	_box.add_child(head)
+	var t := UiUtil.caption(title, 0, 24)
+	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(t)
+	head.add_child(UiUtil.button("✕", func(): visible = false; closed.emit(), Vector2(48, 48)))
+	_box.add_child(UiUtil.label("%s%s · gehört noch nicht zur Gruppe" % ["♂" if offer.sex == "male" else "♀", " · Jungtier" if offer.age == "juvenile" else ""], 15, Color(1, 1, 1, 0.7)))
+	if debug_text != "":
+		_box.add_child(UiUtil.label(debug_text, 14, Color(1, 0.8, 0.4)))
+	_box.add_child(UiUtil.label("Preis: %d %s" % [offer.price, GameState.currency()], 20, Color(0.95, 0.85, 0.4)))
+	var hire := UiUtil.button("Anheuern", func(): hire_requested.emit(offer), Vector2(0, 52))
+	hire.disabled = problem != ""
+	_box.add_child(hire)
+	if problem != "":
+		_box.add_child(UiUtil.label(problem, 14, Color(1, 0.7, 0.5)))
+	_box.add_child(UiUtil.label("Zuletzt beobachtet", 17, Color(0.8, 0.95, 0.6)))
+	var entries := journal.entries_for(offer.id, 5)
+	if entries.is_empty():
+		_box.add_child(UiUtil.label("noch nichts – eine Weile zuschauen", 14, Color(1, 1, 1, 0.6)))
+	for e in entries:
+		_box.add_child(UiUtil.label("%s  %s" % [e.time, e.text], 14))
 
 
 func refresh() -> void:

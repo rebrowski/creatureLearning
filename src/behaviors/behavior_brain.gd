@@ -95,7 +95,7 @@ func update(delta: float) -> void:
 			return
 		_end_current()
 	if paused:
-		creature.desired_velocity = Vector3.ZERO
+		# Aufgaben steuern die Kreatur dann selbst (TaskPlayer setzt desired_velocity)
 		return
 	_choose()
 

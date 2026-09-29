@@ -113,6 +113,5 @@ func _log_tab() -> Control:
 		sb[1].add_child(UiUtil.label("Noch keine Beobachtungen. Schau den Kreaturen eine Weile zu.", 15))
 	for i in range(entries.size() - 1, -1, -1):
 		var e: Dictionary = entries[i]
-		var m := game.member(e.member)
-		sb[1].add_child(UiUtil.label("%s  %s: %s" % [e.time, m.name if m else e.member, e.text], 15))
+		sb[1].add_child(UiUtil.label("%s  %s: %s" % [e.time, game.display_name(e.member), e.text], 15))
 	return sb[0]

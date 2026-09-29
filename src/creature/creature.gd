@@ -9,6 +9,9 @@ extends Node3D
 
 const SHADER := preload("res://src/mesh/creature.gdshader")
 const PATTERN_IDS := {"none": 0, "stripes": 1, "spots": 2, "bands": 3}
+## Namensschilder sind bis zu dieser Kameradistanz sichtbar.
+const TAG_DISTANCE := 24.0
+const TAG_PIXEL_SIZE := 0.0015
 
 @export_flags_3d_physics var ground_mask := 1
 ## Maximale Drehrate in rad/s.
@@ -35,6 +38,11 @@ var behavior_label := ""
 var scripted := false
 ## Getragener Gegenstand (folgt Maul bzw. Rücken), null = nichts.
 var held_item: Node3D
+## Radius der Grundfläche (für Abstand halten, siehe BodyPlan.footprint_radius).
+var radius := 0.5
+## Namensschild über der Kreatur (null = keins).
+var tag: Label3D
+var _tag_height := 1.0
 
 var desired_velocity := Vector3.ZERO
 var velocity := Vector3.ZERO
@@ -73,6 +81,9 @@ func setup(p_genome: Genome, p_label := "") -> void:
 	_ray = PhysicsRayQueryParameters3D.new()
 	_ray.collision_mask = ground_mask
 	locomotion = CreatureLocomotion.new(plan, rig, skeleton, _ground_height)
+	radius = plan.footprint_radius()
+	var top := maxf(plan.body_center_y + plan.half_height + plan.crest_height, plan.body_center_y + plan.head_center.y + plan.head_radius)
+	_tag_height = top + maxf(plan.horn_length, plan.antenna_length * 0.5) + 0.3
 	if is_inside_tree():
 		_snap_to_ground()
 		locomotion.reset(global_transform)
@@ -96,6 +107,8 @@ func _physics_process(delta: float) -> void:
 	_update_lod(delta)
 	if not scripted:
 		_move(delta)
+	if tag != null and tag.visible:
+		tag.global_position = global_position + Vector3.UP * _tag_height
 	if held_item != null:
 		if is_instance_valid(held_item):
 			held_item.global_position = hold_point(held_item.get("size") if held_item.get("size") != null else 0.2)
@@ -130,6 +143,31 @@ func _move(delta: float) -> void:
 	global_position += velocity * delta
 	if lod_level <= CreatureLOD.REDUCED or _frame % 8 == 0:
 		_snap_to_ground()
+
+
+## Namensschild setzen (leerer Text = ausblenden). Bleibt aufrecht über der
+## Kreatur, auch wenn sie klettert; ab TAG_DISTANCE ausgeblendet.
+func set_tag(text: String, color := Color.WHITE) -> void:
+	if tag == null:
+		tag = Label3D.new()
+		tag.name = "Tag"
+		tag.top_level = true
+		tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		tag.fixed_size = true
+		tag.font_size = 30
+		tag.outline_size = 10
+		tag.outline_modulate = Color(0, 0, 0, 0.85)
+		tag.visibility_range_end = TAG_DISTANCE
+		tag.no_depth_test = false
+		tag.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(tag)
+	tag.text = text
+	tag.modulate = color
+	# wächst mit der Oberflächen-Skalierung mit (Handy)
+	tag.pixel_size = TAG_PIXEL_SIZE * (get_tree().root.content_scale_factor if is_inside_tree() else 1.0)
+	tag.visible = text != ""
+	if tag.visible and is_inside_tree():
+		tag.global_position = global_position + Vector3.UP * _tag_height
 
 
 func set_eye_glow(value: float) -> void:

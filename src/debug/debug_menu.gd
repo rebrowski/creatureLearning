@@ -20,16 +20,16 @@ func _ready() -> void:
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(center)
 	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 14)
+	box.add_theme_constant_override("separation", 8)
 	center.add_child(box)
 	var title := Label.new()
 	title.text = "Creature Learning – Debug"
-	title.add_theme_font_size_override("font_size", 34)
+	title.add_theme_font_size_override("font_size", 30)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(title)
 	for spec in SCENES:
 		var b := Button.new()
 		b.text = "%s\n%s" % [spec[0], spec[2]]
-		b.custom_minimum_size = Vector2(520, 84)
+		b.custom_minimum_size = Vector2(520, 66)
 		b.pressed.connect(get_tree().change_scene_to_file.bind(spec[1]))
 		box.add_child(b)

@@ -1,9 +1,16 @@
 class_name NavMover
 extends RefCounted
-## Läuft über das Navmesh zu einem Ziel und hält Abstand zu Nachbarn.
+## Läuft über das Navmesh zu einem Ziel und hält Abstand zu Nachbarn:
+## Nachbarn in Laufrichtung weicht die Kreatur nach rechts aus; kommt ihr
+## jemand direkt entgegen, wartet eine der beiden kurz (Vorrang nach ID).
+## Überlappungen löst die Welt zusätzlich hart auf (ForestWorld._separate).
 
 const ARRIVE_DISTANCE := 0.6
-const SEPARATION_RADIUS := 1.4
+## Zusätzlicher Abstand zwischen den Grundflächen zweier Kreaturen.
+const SEPARATION_MARGIN := 0.4
+## So weit voraus (Meter, plus Radien) wird auf Entgegenkommende geachtet.
+const LOOK_AHEAD := 2.0
+const YIELD_TIME := 0.8
 
 var creature: Creature
 var navigation: ForestNavigation
@@ -14,6 +21,7 @@ var goal := Vector3.ZERO
 var _path := PackedVector3Array()
 var _index := 0
 var _stuck := 0.0
+var _wait := 0.0
 
 
 func _init(p_creature: Creature, p_navigation: ForestNavigation) -> void:
@@ -33,6 +41,7 @@ func go(target: Vector3) -> Vector3:
 	_path = NavigationServer3D.map_get_path(map, creature.global_position, goal, true)
 	_index = 1 if _path.size() > 1 else _path.size()
 	_stuck = 0.0
+	_wait = 0.0
 	return goal
 
 
@@ -49,8 +58,21 @@ func step(delta: float, speed_factor := 1.0) -> bool:
 		return _index >= _path.size()
 	var last := _index == _path.size() - 1
 	var speed := creature.plan.move_speed * speed_factor * (0.6 if last and to.length() < 1.5 else 1.0)
-	creature.desired_velocity = to.normalized() * speed + separation()
-	_stuck = _stuck + delta if creature.velocity.length() < 0.03 else 0.0
+	if _wait > 0.0:
+		_wait -= delta
+		creature.desired_velocity = separation()
+		return false
+	var dir := to.normalized()
+	var avoid := avoidance(dir)
+	if avoid.is_empty():
+		creature.desired_velocity = dir * speed + separation()
+	elif avoid.yield:
+		_wait = YIELD_TIME
+		creature.desired_velocity = separation()
+		return false
+	else:
+		creature.desired_velocity = (dir + avoid.side).normalized() * speed * avoid.slow + separation()
+	_stuck = _stuck + delta if creature.velocity.length() < 0.03 and _wait <= 0.0 else 0.0
 	if _stuck > 3.0:
 		_index = _path.size()  # aufgeben, Verhalten entscheidet neu
 		return true
@@ -76,6 +98,40 @@ func separation() -> Vector3:
 			continue
 		var d := Vector3(pos.x - o.global_position.x, 0.0, pos.z - o.global_position.z)
 		var dist := d.length()
-		if dist > 0.001 and dist < SEPARATION_RADIUS:
-			push += d / dist * (SEPARATION_RADIUS - dist)
+		var r := creature.radius + o.radius + SEPARATION_MARGIN
+		if dist > 0.001 and dist < r:
+			push += d / dist * (r - dist)
 	return push
+
+
+## Nachbar voraus? {} = frei; sonst {"side": Ausweichrichtung, "slow": Faktor,
+## "yield": true = kurz warten und dem anderen den Vortritt lassen}.
+func avoidance(dir: Vector3) -> Dictionary:
+	var pos := creature.global_position
+	var best: Creature = null
+	var best_ahead := INF
+	for o in others:
+		if o == creature or not is_instance_valid(o) or not o.visible:
+			continue
+		var d := Vector3(o.global_position.x - pos.x, 0.0, o.global_position.z - pos.z)
+		var ahead := d.dot(dir)
+		if ahead <= 0.0:
+			continue
+		var lateral := absf(d.cross(dir).y)
+		var r := creature.radius + o.radius + SEPARATION_MARGIN
+		if ahead < LOOK_AHEAD + r and lateral < r and ahead < best_ahead:
+			best = o
+			best_ahead = ahead
+	if best == null:
+		return {}
+	var r2 := creature.radius + best.radius + SEPARATION_MARGIN
+	var oncoming := best.velocity.length() > 0.05 and best.velocity.normalized().dot(dir) < -0.5
+	# Wer die höhere ID hat, wartet – so bleiben nie beide stehen
+	if oncoming and best_ahead < r2 + 0.5 and creature.get_instance_id() > best.get_instance_id():
+		return {"yield": true}
+	# rechts vorbei (von oben gesehen: dir × UP zeigt nach rechts)
+	var right := dir.cross(Vector3.UP).normalized()
+	var strength := clampf(1.0 - (best_ahead - r2) / LOOK_AHEAD, 0.2, 1.0)
+	# Stehenden umgeht man zügig, bei Entgegenkommenden etwas langsamer
+	var slow := lerpf(1.0, 0.6, strength) if best.velocity.length() > 0.05 else 1.0
+	return {"yield": false, "side": right * strength * 1.5, "slow": slow}

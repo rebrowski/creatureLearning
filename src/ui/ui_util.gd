@@ -2,6 +2,9 @@ class_name UiUtil
 extends RefCounted
 ## Kleine Helfer für die im Code gebauten Oberflächen (einheitliche Größen für Touch).
 
+## Bezeichnung für noch nicht angeheuerte Kreaturen.
+const STRANGER := "Fremdling"
+
 
 static func button(text: String, action: Callable = Callable(), min_size := Vector2(0, 48)) -> Button:
 	var b := Button.new()
@@ -49,7 +52,10 @@ static func panel_style() -> StyleBoxFlat:
 
 
 ## Vollbild-Overlay mit dunklem Hintergrund und zentriertem Panel.
-static func overlay(parent: Control, panel_size: Vector2) -> PanelContainer:
+## Das Panel wird auf die Bildschirmgröße begrenzt; der Inhalt scrollt, wenn er
+## nicht passt (kleine Bildschirme, große Schrift). Rückgabe: Container für den
+## Inhalt (Kinder füllen die Fläche).
+static func overlay(parent: Control, panel_size: Vector2) -> Container:
 	var bg := ColorRect.new()
 	bg.color = Color(0, 0, 0, 0.55)
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -59,10 +65,29 @@ static func overlay(parent: Control, panel_size: Vector2) -> PanelContainer:
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	bg.add_child(center)
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = panel_size
+	var screen := parent.get_viewport_rect().size if parent.is_inside_tree() else Vector2(1280, 720)
+	var max_size := screen - Vector2(24, 24)
+	panel.custom_minimum_size = Vector2(minf(panel_size.x, max_size.x), minf(panel_size.y, max_size.y))
 	panel.add_theme_stylebox_override("panel", panel_style())
 	center.add_child(panel)
-	return panel
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	# ohne feste Höhe wächst das Panel mit dem Inhalt – aber nie über den Bildschirm
+	scroll.custom_minimum_size.y = minf(panel_size.y, max_size.y) if panel_size.y > 0.0 else 0.0
+	panel.add_child(scroll)
+	var box := VBoxContainer.new()
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.add_child(box)
+	box.child_entered_tree.connect(func(n: Node) -> void:
+		if n is Control and n.get_parent() == box:
+			n.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			n.size_flags_vertical = Control.SIZE_EXPAND_FILL)
+	if panel_size.y <= 0.0:
+		# Höhe nach Inhalt, begrenzt auf den Bildschirm
+		box.resized.connect(func() -> void:
+			scroll.custom_minimum_size.y = minf(box.get_combined_minimum_size().y, max_size.y - 32.0))
+	return box
 
 
 static func clear(node: Node) -> void:

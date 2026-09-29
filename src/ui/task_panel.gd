@@ -1,6 +1,7 @@
 class_name TaskPanel
 extends Control
 ## Aufgabenwahl: Aufgabe aussuchen, pro Rolle ein Gruppenmitglied zuweisen, starten.
+## Zeigt die mögliche Belohnung.
 
 signal start_requested(task: TaskDef, assignments: Dictionary)
 signal closed
@@ -16,9 +17,13 @@ func _init() -> void:
 	visible = false
 
 
-func open(p_game: GameState, p_catalog: TaskCatalog) -> void:
+## task: diese Aufgabe vorauswählen (null = zuletzt gewählte bzw. erste).
+func open(p_game: GameState, p_catalog: TaskCatalog, task: TaskDef = null) -> void:
 	game = p_game
 	catalog = p_catalog
+	if task != null and task != _selected:
+		_selected = task
+		_choice.clear()
 	if _selected == null and not catalog.tasks.is_empty():
 		_selected = catalog.tasks[0]
 	_build()
@@ -31,19 +36,19 @@ func _build() -> void:
 	var root := HBoxContainer.new()
 	panel.add_child(root)
 	var left := VBoxContainer.new()
-	left.custom_minimum_size = Vector2(300, 0)
+	left.custom_minimum_size = Vector2(250, 0)
 	root.add_child(left)
 	left.add_child(UiUtil.label("Aufgaben", 26))
 	for t in catalog.tasks:
 		var st: Dictionary = game.tasks.get(t.id, {})
 		var mark := " ✓" if st.get("successes", 0) > 0 else ("  (%d×)" % st.attempts if st.get("attempts", 0) > 0 else "")
-		var b := UiUtil.button(t.name + mark, func(): _selected = t; _choice.clear(); _build(), Vector2(280, 52))
+		var b := UiUtil.button(t.name + mark, func(): _selected = t; _choice.clear(); _build(), Vector2(240, 52))
 		b.toggle_mode = true
 		b.button_pressed = t == _selected
 		left.add_child(b)
 	left.add_child(Control.new())
 	left.get_child(left.get_child_count() - 1).size_flags_vertical = Control.SIZE_EXPAND_FILL
-	left.add_child(UiUtil.button("Schließen", func(): visible = false; closed.emit(), Vector2(280, 48)))
+	left.add_child(UiUtil.button("Schließen", func(): visible = false; closed.emit(), Vector2(240, 48)))
 
 	var right := VBoxContainer.new()
 	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -58,6 +63,11 @@ func _build() -> void:
 	if _selected.context.has("weather"):
 		ctx.append({"clear": "klar", "cloudy": "bewölkt", "rain": "Regen"}.get(_selected.context.weather, ""))
 	right.add_child(UiUtil.label(" · ".join(ctx), 15, Color(1, 1, 1, 0.7)))
+	var reward := game.reward_for(_selected)
+	if reward > 0:
+		var again: bool = game.tasks.get(_selected.id, {}).get("successes", 0) > 0
+		right.add_child(UiUtil.label("Belohnung bei Erfolg: %d %s%s" % [reward, GameState.currency(), " (schon einmal gelöst)" if again else ""],
+				18, Color(0.95, 0.85, 0.4)))
 	right.add_child(UiUtil.label("Rollen", 20, Color(0.8, 0.95, 0.6)))
 	for r in _selected.roles:
 		var row := HBoxContainer.new()
@@ -68,7 +78,7 @@ func _build() -> void:
 		info.add_child(UiUtil.label(r.description, 14, Color(1, 1, 1, 0.75)))
 		row.add_child(info)
 		var opt := OptionButton.new()
-		opt.custom_minimum_size = Vector2(220, 48)
+		opt.custom_minimum_size = Vector2(190, 48)
 		opt.add_item("– wählen –")
 		for m in game.members:
 			opt.add_item(m.name)

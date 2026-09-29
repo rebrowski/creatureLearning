@@ -1,7 +1,7 @@
 class_name GameState
 extends RefCounted
 ## Spielstand: Taxonomie, Gruppe (mit Genomen), Journal, Aufgabenfortschritt,
-## Tageszeit/Wetter. Gespeichert als versionierte JSON-Datei (lokal, user://).
+## Guthaben, Fremde zum Anheuern, Tageszeit/Wetter. Gespeichert als versionierte JSON-Datei (lokal, user://).
 ## Regeln: docs/roadmap.md, Abschnitt „Spielstand“.
 
 const FORMAT := "creature_save/1"
@@ -20,6 +20,10 @@ var tasks: Dictionary = {}
 var hour := 9.0
 var weather := "clear"
 var recruit_count := 0
+## Guthaben (Währung: progression.json "currency").
+var credits := 0
+## Fremde am Waldrand, die man anheuern kann (Name "Fremdling N", Preis in GroupMember.price).
+var offers: Array[GroupMember] = []
 var errors: PackedStringArray = []
 
 
@@ -42,6 +46,9 @@ static func new_game(group_path: String = GROUP_PATH) -> GameState:
 			continue
 		var ind := gs.factory.create_individual(m.species, int(m.get("index", 0)), "", "", 0.1)
 		gs.members.append(GroupMember.from_individual(ind, gs._next_name()))
+	var cfg := progression()
+	gs.credits = int(cfg.get("start_credits", 40))
+	gs.refill_offers(cfg)
 	return gs
 
 
@@ -72,8 +79,12 @@ func to_dict() -> Dictionary:
 	var list := []
 	for m in members:
 		list.append(m.to_dict())
+	var offer_list := []
+	for m in offers:
+		offer_list.append(m.to_dict())
 	return {"format": FORMAT, "taxonomy": taxonomy.to_dict(), "members": list, "journal": journal.to_dict(),
-			"tasks": tasks, "hour": hour, "weather": weather, "recruit_count": recruit_count}
+			"tasks": tasks, "hour": hour, "weather": weather, "recruit_count": recruit_count,
+			"credits": credits, "offers": offer_list}
 
 
 func _from_dict(d: Variant) -> void:
@@ -96,6 +107,12 @@ func _from_dict(d: Variant) -> void:
 	hour = float(d.get("hour", 9.0))
 	weather = str(d.get("weather", "clear"))
 	recruit_count = int(d.get("recruit_count", 0))
+	# ältere Spielstände (vor dem Anheuern): Startguthaben und neue Fremde
+	credits = int(d.get("credits", progression().get("start_credits", 40)))
+	for od in d.get("offers", []):
+		offers.append(GroupMember.from_dict(schema, od))
+	if not d.has("offers"):
+		refill_offers()
 
 
 func member(id: String) -> GroupMember:
@@ -105,6 +122,17 @@ func member(id: String) -> GroupMember:
 	return null
 
 
+## Anzeigename für eine Kreaturen-ID – verrät bei Fremden nie die Art.
+func display_name(id: String) -> String:
+	var m := member(id)
+	if m != null:
+		return m.name
+	for o in offers:
+		if o.id == id:
+			return o.name
+	return "ein %s" % UiUtil.STRANGER
+
+
 func total_successes() -> int:
 	var n := 0
 	for k in tasks:
@@ -112,32 +140,84 @@ func total_successes() -> int:
 	return n
 
 
-## Aufgabenergebnis eintragen; bei Erfolg kommen neue Mitglieder dazu (Rückgabe).
-func record_task(task_id: String, success: bool) -> Array[GroupMember]:
-	if not tasks.has(task_id):
-		tasks[task_id] = {"attempts": 0, "successes": 0}
-	tasks[task_id].attempts += 1
-	var joined: Array[GroupMember] = []
+## Belohnung, die ein Erfolg bei dieser Aufgabe jetzt brächte.
+func reward_for(task: TaskDef, cfg: Dictionary = {}) -> int:
+	if cfg.is_empty():
+		cfg = progression()
+	if tasks.get(task.id, {}).get("successes", 0) > 0:
+		return int(roundf(task.reward * float(cfg.get("repeat_reward_factor", 0.5))))
+	return task.reward
+
+
+## Aufgabenergebnis eintragen. Bei Erfolg gibt es Guthaben; danach kommen neue
+## Fremde an den Waldrand. Rückgabe: {"earned": int, "new_offers": Array[GroupMember]}.
+func record_task(task: TaskDef, success: bool) -> Dictionary:
+	var cfg := progression()
+	var earned := reward_for(task, cfg) if success else 0
+	if not tasks.has(task.id):
+		tasks[task.id] = {"attempts": 0, "successes": 0}
+	tasks[task.id].attempts += 1
 	if success:
-		tasks[task_id].successes += 1
-		var cfg: Dictionary = _read(PROGRESSION_PATH)
-		for i in int(cfg.get("recruits_per_success", 1)):
-			if members.size() >= int(cfg.get("max_group_size", 20)):
-				break
-			var m := recruit(cfg)
-			if m != null:
-				joined.append(m)
-	return joined
+		tasks[task.id].successes += 1
+	credits += earned
+	return {"earned": earned, "new_offers": refill_offers(cfg)}
 
 
-## Wählt eine neue Kreatur: meist eine Art, die einem Mitglied ähnlich sieht
-## (Doppelgänger, Nachahmer), sonst zufällig; oft vertretene Arten seltener.
+## Füllt die Fremden am Waldrand auf "offers" auf (solange die Gruppe nicht voll ist).
+func refill_offers(cfg: Dictionary = {}) -> Array[GroupMember]:
+	if cfg.is_empty():
+		cfg = progression()
+	var added: Array[GroupMember] = []
+	while offers.size() < int(cfg.get("offers", 3)) and members.size() + offers.size() < int(cfg.get("max_group_size", 20)):
+		var m := recruit(cfg)
+		if m == null:
+			break
+		offers.append(m)
+		added.append(m)
+	return added
+
+
+## Warum man diesen Fremden gerade nicht anheuern kann ("" = geht).
+func hire_problem(offer: GroupMember) -> String:
+	if not offers.has(offer):
+		return "nicht mehr da"
+	if members.size() >= int(progression().get("max_group_size", 20)):
+		return "Die Gruppe ist voll."
+	if credits < offer.price:
+		return "Zu wenig %s (%d von %d)." % [currency(), credits, offer.price]
+	return ""
+
+
+## Heuert einen Fremden an: kostet seinen Preis, er bekommt einen Namen.
+func hire(offer: GroupMember) -> bool:
+	if hire_problem(offer) != "":
+		return false
+	credits -= offer.price
+	offers.erase(offer)
+	offer.name = _next_name()
+	offer.joined_after = total_successes()
+	offer.price = 0
+	members.append(offer)
+	return true
+
+
+static func currency() -> String:
+	return str(progression().get("currency", "Beeren"))
+
+
+static func progression() -> Dictionary:
+	return _read(PROGRESSION_PATH)
+
+
+## Wählt einen neuen Fremden (vorläufiger Name "Fremdling N", mit Preis): meist eine Art, die
+## einem Mitglied ähnlich sieht (Doppelgänger, Nachahmer), sonst zufällig; oft
+## vertretene Arten seltener.
 func recruit(cfg: Dictionary = {}) -> GroupMember:
 	if cfg.is_empty():
-		cfg = _read(PROGRESSION_PATH)
+		cfg = progression()
 	var rng := RngUtil.make_rng(["recruit", taxonomy.base_seed, recruit_count])
 	var counts := {}
-	for m in members:
+	for m in members + offers:
 		counts[m.species_id] = counts.get(m.species_id, 0) + 1
 	var candidates: Array[Taxon] = taxonomy.species()
 	if candidates.is_empty():
@@ -170,13 +250,17 @@ func recruit(cfg: Dictionary = {}) -> GroupMember:
 		if chosen == null:
 			chosen = candidates[-1]
 	var index := 0
-	for m in members:
+	for m in members + offers:
 		if m.species_id == chosen.id:
 			index = maxi(index, m.index + 1)
 	var ind := factory.create_individual(chosen.id, index, "", "", float(cfg.get("juvenile_chance", 0.15)))
 	recruit_count += 1
-	var gm := GroupMember.from_individual(ind, _next_name(), total_successes())
-	members.append(gm)
+	var gm := GroupMember.from_individual(ind, "%s %d" % [UiUtil.STRANGER, recruit_count], total_successes())
+	var price := float(cfg.get("price_base", 20)) + float(cfg.get("price_per_member", 2)) * members.size()
+	price += rng.randf_range(-1.0, 1.0) * float(cfg.get("price_jitter", 5))
+	if gm.age == "juvenile":
+		price *= float(cfg.get("juvenile_factor", 0.6))
+	gm.price = maxi(5, int(roundf(price / 5.0)) * 5)
 	return gm
 
 

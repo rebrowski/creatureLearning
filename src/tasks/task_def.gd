@@ -10,11 +10,13 @@ var id := ""
 var name := ""
 var description := ""
 var order := 0
+## Belohnung (Guthaben) beim ersten Erfolg; Wiederholungen siehe progression.json.
+var reward := 0
 ## {"hour": float, "weather": String}
 var context: Dictionary = {}
 ## Ortsname -> Ortsangabe (z. B. "fruit_tree:0")
 var places: Dictionary = {}
-## [{id, name, description, requirements: [{ability, weight, zone, wading, dark}], threshold, requires: [], hint_fail, hint_close, hint_skipped}]
+## [{id, name, description, requirements: [{ability, weight, zone, wading, dark}], threshold, requires: [], hint_fail, hint_fail_far, hint_close, hint_skipped}]
 var roles: Array = []
 var steps: Array = []
 var errors: PackedStringArray = []
@@ -31,6 +33,7 @@ static func from_dict(d: Variant, catalog: AbilityCatalog, source := "<task>") -
 	t.name = str(d.get("name", t.id))
 	t.description = str(d.get("description", ""))
 	t.order = int(d.get("order", 0))
+	t.reward = int(d.get("reward", 0))
 	t.context = d.get("context", {})
 	t.places = d.get("places", {})
 	var role_ids := []
@@ -56,7 +59,8 @@ static func from_dict(d: Variant, catalog: AbilityCatalog, source := "<task>") -
 		role_ids.append(rid)
 		t.roles.append({"id": rid, "name": str(r.get("name", rid)), "description": str(r.get("description", "")),
 				"requirements": reqs, "threshold": float(r.get("threshold", 0.5)), "requires": Array(r.get("requires", [])),
-				"hint_fail": str(r.get("hint_fail", "")), "hint_close": str(r.get("hint_close", "")),
+				"hint_fail": str(r.get("hint_fail", "")), "hint_fail_far": str(r.get("hint_fail_far", "")),
+				"hint_close": str(r.get("hint_close", "")),
 				"hint_skipped": str(r.get("hint_skipped", ""))})
 	if t.roles.is_empty():
 		t.errors.append("%s: mindestens eine Rolle nötig" % source)
