@@ -36,17 +36,24 @@ deren Art und Fähigkeiten durch Beobachtung und weist ihnen in kurzen Aufgaben 
 
 ## Starten
 
-Projekt im Godot-Editor öffnen und F5 drücken. Das Startmenü (`scenes/main.tscn`) führt zu den
-Debug-Szenen; oben rechts gibt es überall einen „Menü“-Knopf (Esc / Android-Zurück geht auch).
+Projekt im Godot-Editor öffnen und F5 drücken. Das Spiel startet direkt in der Waldwelt; die
+Debug-Szenen erreicht man über *Optionen → Debug → Entwicklermenü* (dort oben rechts „Menü“,
+Esc / Android-Zurück geht auch).
 
 - **Waldwelt** (`scenes/world/forest.tscn`) – das eigentliche Spiel: Gelände mit Bach, Lichtung,
-  Felsen und Fruchtbäumen, Tag/Nacht (8 min pro Tag), Wetter. Die Gruppe (anfangs 9 Kreaturen mit
-  Namen) zeigt ihre Fähigkeiten im Alltag. **Kreatur antippen** → Karte mit Markierung, eigener
-  Gruppe, Einschätzung der Fähigkeiten, Notiz, Beobachtungen. **Journal** → Kreaturen, Gruppen,
-  Protokoll. **Aufgaben** → Aufgabe wählen, Rollen besetzen, starten; die Kreaturen spielen sie
-  vor, danach Auswertung mit Hinweisen. Gelöste Aufgaben bringen neue Mitglieder (oft
-  Doppelgänger). Der Spielstand wird automatisch gespeichert. **Debug** zeigt Arten und
-  Fähigkeitswerte und bietet „Neues Spiel“.
+  Felsen und Fruchtbäumen, Tag/Nacht (8 min pro Tag), Wetter. Ein neues Spiel beginnt mit einer
+  kurzen Einführung und 6 Kreaturen (3 Arten, zwei davon Doppelgänger).
+  - **Köder** (1 Beere) an Baum, Bach oder Boden legen: Kreaturen in der Nähe versuchen, die
+    Beere zu holen, und zeigen dabei, was sie können.
+  - **Kreatur antippen** → Karte mit vermuteter Art, Einschätzung der Fähigkeiten, Beobachtungen.
+  - **Aufgaben** → Aufgabe wählen, Rollenplatz antippen, dann die Kreatur in der Welt antippen,
+    starten. Jeder Versuch kostet Proviant, der erste Versuch zahlt doppelt, wer scheitert, ist bis
+    morgen erschöpft. 9 Aufgaben werden nacheinander frei.
+  - Nach jeder Aufgabe eine **Artfrage** („dieselbe Art?“); richtig beantwortet füllt sie das
+    **Bestimmungsbuch** im Journal.
+  - **Anheuern**: Fremde am Waldrand beobachten und für Beeren in die Gruppe holen.
+  - **Optionen**: Tempo, Warten bis Abend/Morgen, Namen, Textgröße, Ton, Debug.
+  Der Spielstand wird automatisch gespeichert.
 - **Kreaturen-Labor** (`scenes/debug/creature_lab.tscn`, M2): alle Baupläne laufen als 3D-Kreaturen
   mit IK über unebenen Boden. Ziehen = drehen, Pinch/Mausrad = zoomen, zwei Finger/rechte
   Maustaste = verschieben, Antippen = Kreatur auswählen (Kamera folgt). Knöpfe: +5/−5,
@@ -109,7 +116,7 @@ addons/dreadpon.spatial_gardener/  Vegetations-Plugin (MIT)
 assets/vegetation/     erzeugte Low-Poly-Pflanzen (build_forest.gd)
 data/                  Schema, Taxonomien, Generator-Presets (JSON)
 docs/                  Dokumentation
-scenes/                Startmenü (main.tscn) und Debug-Szenen
+scenes/                Waldwelt (Startszene), Entwicklermenü (main.tscn) und Debug-Szenen
 src/core/              Ränge, Seeds, JSON
 src/genome/            Gen-Definitionen, Genom, Distanz
 src/taxonomy/          Taxonomie, Loader, Generator, Individuen, Dimorphismus, Konvergenz

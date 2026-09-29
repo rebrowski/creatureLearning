@@ -1,6 +1,6 @@
 class_name JournalPanel
 extends Control
-## Beobachtungs-Journal (Vollbild): Kreaturen, eigene Gruppen, Protokoll.
+## Beobachtungs-Journal (Vollbild): Kreaturen, vermutete Arten, Bestimmungsbuch, Protokoll.
 
 signal member_chosen(member_id: String)
 signal closed
@@ -31,6 +31,7 @@ func open(p_game: GameState) -> void:
 	root.add_child(_tabs)
 	_tabs.add_child(_creatures_tab())
 	_tabs.add_child(_groups_tab())
+	_tabs.add_child(_guide_tab())
 	_tabs.add_child(_log_tab())
 	visible = true
 
@@ -56,19 +57,14 @@ func _creatures_tab() -> Control:
 	for m in game.members:
 		var row := HBoxContainer.new()
 		sb[1].add_child(row)
-		var mark := UiUtil.caption("●" if j.marks.has(m.id) else "·", 30, 22)
-		if j.marks.has(m.id):
-			mark.add_theme_color_override("font_color", Journal.MARK_COLORS[j.marks[m.id]])
-		mark.custom_minimum_size = Vector2(30, 0)
-		row.add_child(mark)
 		var b := UiUtil.button(m.name, func(): visible = false; member_chosen.emit(m.id), Vector2(150, 44))
 		row.add_child(b)
 		var gi := j.group_of(m.id)
 		var rated := []
 		for a in j.ratings.get(m.id, {}):
-			rated.append("%s %s" % [game_catalog_name(a), ["–", "o", "+"][j.ratings[m.id][a]]])
-		var txt := "%s%s%s" % [("Gruppe: %s · " % j.groups[gi].name) if gi >= 0 else "",
-				", ".join(rated), (" · Notiz" if j.notes.has(m.id) else "")]
+			rated.append("%s %s" % [game_catalog_name(a), Journal.RATING_LABELS[j.ratings[m.id][a]]])
+		var txt := "%s%s%s" % [("Art: %s · " % j.groups[gi].name) if gi >= 0 else "",
+				", ".join(rated), " · erschöpft" if m.exhausted else ""]
 		var l := UiUtil.label(txt, 14, Color(1, 1, 1, 0.75))
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(l)
@@ -81,9 +77,9 @@ func game_catalog_name(ability: String) -> String:
 
 
 func _groups_tab() -> Control:
-	var sb := _scroll("Gruppen")
+	var sb := _scroll("Vermutete Arten")
 	var j := game.journal
-	sb[1].add_child(UiUtil.label("Eigene Gruppen – z. B. Kreaturen, die du für dieselbe Art hältst. Das Spiel sagt dir nicht, ob sie stimmen.", 14, Color(1, 1, 1, 0.7)))
+	sb[1].add_child(UiUtil.label("Ordne Kreaturen, die du für dieselbe Art hältst, einer vermuteten Art zu. Ob du richtig liegst, zeigen die Artfragen nach den Aufgaben (Bestimmungsbuch).", 14, Color(1, 1, 1, 0.7)))
 	for i in j.groups.size():
 		var row := HBoxContainer.new()
 		sb[1].add_child(row)
@@ -102,7 +98,29 @@ func _groups_tab() -> Control:
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(l)
 		row.add_child(UiUtil.button("Löschen", func(): j.remove_group(i); open(game), Vector2(110, 44)))
-	sb[1].add_child(UiUtil.button("+ Neue Gruppe", func(): j.add_group("Gruppe %d" % (j.groups.size() + 1)); open(game); _tabs.current_tab = 1, Vector2(200, 48)))
+	sb[1].add_child(UiUtil.button("+ Neue Art", func(): j.add_group("Art %s" % char(65 + j.groups.size() % 26)); open(game); _tabs.current_tab = 1, Vector2(200, 48)))
+	return sb[0]
+
+
+## Bestimmungsbuch: bestimmte Arten mit wissenschaftlichem Namen, der Rest unbekannt.
+func _guide_tab() -> Control:
+	var sb := _scroll("Bestimmungsbuch")
+	var guide := game.field_guide()
+	var known := 0
+	for e in guide:
+		if e[2]:
+			known += 1
+	sb[1].add_child(UiUtil.label("Bestimmte Arten in deiner Gruppe: %d von %d. Richtig beantwortete Artfragen nach den Aufgaben bestimmen eine Art." % [known, guide.size()], 15, Color(1, 1, 1, 0.75)))
+	var n := 0
+	for e in guide:
+		var names := []
+		for m in e[1]:
+			names.append(m.name)
+		if e[2]:
+			sb[1].add_child(UiUtil.label("%s – %s" % [e[0].display_name(), ", ".join(names)], 17, Color(0.8, 0.95, 0.6)))
+		else:
+			n += 1
+			sb[1].add_child(UiUtil.label("Unbestimmte Art – noch nicht sicher, wer dazugehört", 16, Color(1, 1, 1, 0.5)))
 	return sb[0]
 
 

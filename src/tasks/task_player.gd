@@ -19,9 +19,11 @@ signal finished(result: Dictionary)
 
 const STEP_TIMEOUT := 90.0
 ## So lange bleibt die Ergebnis-Einblendung eines Schritts stehen (Sekunden).
-const RESULT_PAUSE := 1.6
+const RESULT_PAUSE := 1.1
+## Aufgaben laufen zügiger als freies Verhalten (Klettern, Schwimmen, Anmarsch).
+const TASK_SPEED := 1.6
 ## So lange stehen ✓/✗ über den Beteiligten, bevor die Auswertung kommt.
-const MARKER_TIME := 2.5
+const MARKER_TIME := 2.0
 const OK_COLOR := Color(0.55, 1.0, 0.45)
 ## Abstand, in dem die übrigen Beteiligten beim aktuellen Schritt warten (Meter).
 const ESCORT_DISTANCE := 2.6
@@ -126,6 +128,9 @@ func _send_escorts(step: Dictionary, active_role: String) -> void:
 	for later in task.steps.slice(idx + 1):
 		upcoming[str(later.get("role", ""))] = true
 	var place := _place_of(step)
+	# beim Pflücken dort warten, wo die Frucht landen wird
+	if str(step.get("type", "")) == "climb_tree" and step.get("on_success", "") == "drop_fruit":
+		place = _fruit_landing(_resolve(str(step.place)))
 	var n := 0
 	for role_id in actors:
 		var other: Creature = actors[role_id]
@@ -137,7 +142,7 @@ func _send_escorts(step: Dictionary, active_role: String) -> void:
 		away.y = 0.0
 		away = away.normalized() if away.length() > 0.01 else Vector3.BACK
 		away = away.rotated(Vector3.UP, 0.5 * n)
-		var target := place + away * (ESCORT_DISTANCE + other.radius)
+		var target := place + away * (ESCORT_DISTANCE * 0.6 + other.radius)
 		if Vector2(other.global_position.x - target.x, other.global_position.z - target.z).length() > 1.0:
 			_brain(other).mover.go(target)
 			_escorts[other] = true
@@ -170,7 +175,7 @@ func _gather() -> void:
 		var rng := RngUtil.make_rng(["gather", task.id, n])
 		for attempt in 40:
 			var a := rng.randf_range(0.0, TAU)
-			var r := rng.randf_range(3.0, 5.5)
+			var r := rng.randf_range(2.2, 3.5)
 			var x := first.x + cos(a) * r
 			var z := first.z + sin(a) * r
 			if l.zone_at(x, z) in ["forest", "clearing", "bank"]:
@@ -200,7 +205,7 @@ func _run_step(step: Dictionary) -> void:
 		"climb_tree":
 			step_started.emit("%s klettert auf den Baum …" % who)
 			var tree: FruitTree = _resolve(str(step.place))
-			await _force_and_wait(c, "climb_tree", {"tree": tree, "forced_outcome": outcome})
+			await _force_and_wait(c, "climb_tree", {"tree": tree, "forced_outcome": outcome, "top_wait": 0.6, "speed": TASK_SPEED})
 			if outcome == "success" and step.get("on_success", "") == "drop_fruit":
 				_drop_fruit(tree)
 				step_started.emit("Die Frucht fällt herunter!")
@@ -208,11 +213,6 @@ func _run_step(step: Dictionary) -> void:
 			elif outcome != "success":
 				step_started.emit("%s kommt nicht hinauf." % who)
 				await _pause(RESULT_PAUSE)
-			# vom Stamm zurücktreten, damit der Weg für die anderen frei ist
-			var away := c.global_position - tree.global_position
-			away.y = 0.0
-			away = away.normalized() if away.length() > 0.01 else Vector3.BACK
-			await _walk(c, c.global_position + away * 2.5, true, 6.0)
 		"pick_up":
 			var item: Node3D = _items.get(str(step.get("item", "")))
 			if item == null:
@@ -227,7 +227,7 @@ func _run_step(step: Dictionary) -> void:
 		"cross_stream":
 			step_started.emit("%s versucht, den Bach zu durchqueren …" % who)
 			var p: Vector3 = _place_of(step)
-			await _force_and_wait(c, "swim", {"crossing": Vector2(p.x, p.z), "forced_outcome": outcome})
+			await _force_and_wait(c, "swim", {"crossing": Vector2(p.x, p.z), "forced_outcome": outcome, "speed": TASK_SPEED})
 			step_started.emit(("%s ist drüben." if outcome == "success" else "%s schafft es nicht über den Bach.") % who)
 			await _pause(RESULT_PAUSE)
 		"drop":
@@ -292,7 +292,7 @@ func _walk(c: Creature, target: Vector3, near: bool, timeout := STEP_TIMEOUT) ->
 	mover.go(target)
 	var t := 0.0
 	while t < timeout:
-		if mover.step(get_physics_process_delta_time()) or (near and mover.distance_to_goal() < 0.9):
+		if mover.step(get_physics_process_delta_time(), TASK_SPEED) or (near and mover.distance_to_goal() < 0.9):
 			break
 		await _frame()
 		t += get_physics_process_delta_time()
@@ -313,9 +313,22 @@ func _wander_lost(c: Creature) -> void:
 	mover.stop()
 
 
-func _drop_fruit(tree: FruitTree) -> void:
+## Wo eine vom Baum fallende Frucht landet.
+func _fruit_landing(tree: FruitTree) -> Vector3:
+	var start := _fruit_start(tree)
+	var l: ForestLayout = world.terrain.layout
+	var ground := Vector3(start.x + 0.8, 0.0, start.z + 0.8)
+	ground.y = l.height_at(ground.x, ground.z)
+	return ground
+
+
+func _fruit_start(tree: FruitTree) -> Vector3:
 	var positions := tree.fruit_positions()
-	var start := positions[0] if not positions.is_empty() else tree.global_position + Vector3(0, tree.fruit_height, 0)
+	return positions[0] if not positions.is_empty() else tree.global_position + Vector3(0, tree.fruit_height, 0)
+
+
+func _drop_fruit(tree: FruitTree) -> void:
+	var start := _fruit_start(tree)
 	tree.take_fruit()
 	var fruit := CarryItem.new()
 	fruit.size = 0.13
@@ -335,9 +348,7 @@ func _drop_fruit(tree: FruitTree) -> void:
 	mi.position.y = 0.13
 	fruit.add_child(mi)
 	fruit.global_position = start
-	var l: ForestLayout = world.terrain.layout
-	var ground := Vector3(start.x + 0.8, 0.0, start.z + 0.8)
-	ground.y = l.height_at(ground.x, ground.z)
+	var ground := _fruit_landing(tree)
 	fruit.create_tween().tween_property(fruit, "global_position", ground, 0.7).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	_items["task_fruit"] = fruit
 

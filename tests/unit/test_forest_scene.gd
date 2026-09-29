@@ -171,3 +171,50 @@ func test_tempo_speeds_up_everything() -> void:
 		assert_lte(s, 4.0, "nicht zu schnell")
 	world.set_tempo(0)
 	assert_eq(Engine.time_scale, 1.0)
+
+
+func test_pick_roles_by_tapping() -> void:
+	var t: TaskDef = world.tasks.tasks[0]
+	var role: String = t.roles[0].id
+	world._begin_pick(t, role)
+	var tired: GroupMember = world.game.members[1]
+	tired.exhausted = true
+	assert_false(world.pick_creature(world.creature_of(tired)), "Erschöpfte können nicht")
+	if not world.strangers.is_empty():
+		assert_false(world.pick_creature(world.strangers.keys()[0]), "Fremde erst anheuern")
+	assert_true(world.pick_creature(world.creature_of(world.game.members[0])))
+	assert_true(world._picking.is_empty())
+	assert_true(world._task_panel.visible, "Panel wieder offen")
+	assert_eq(world._task_panel._choice[role], world.game.members[0].id)
+	tired.exhausted = false
+	world._task_panel.visible = false
+
+
+func test_bait_starts_trials() -> void:
+	var tree: FruitTree = world.terrain.fruit_trees[0]
+	var c: Creature = world.creatures[0]
+	c.global_position = tree.global_position + Vector3(3, 0, 0)
+	world.game.credits = 20
+	var credits: int = world.game.credits
+	var bait: Bait = world.place_bait(tree.global_position + Vector3(0.5, 0, 0))
+	assert_not_null(bait)
+	assert_eq(bait.kind, "tree")
+	assert_eq(world.game.credits, credits - 1, "Köder kostet eine Beere")
+	assert_false(world._bait_trials.is_empty(), "Kreaturen in der Nähe probieren es")
+	assert_eq(world._bait_trials[0].behavior.id, "climb_tree")
+	var l: ForestLayout = world.terrain.layout
+	var s: Vector2 = l.stream_info(tree.global_position.x, tree.global_position.z).closest
+	var w: Bait = world.place_bait(Vector3(s.x, 0, s.y))
+	assert_eq(w.kind, "water")
+	for t in world._bait_trials:
+		assert_eq(t.behavior.id, "swim")
+		t.brain.stop_current()
+	world._bait_trials.clear()
+
+
+func test_wait_jumps_to_evening() -> void:
+	world.day_night.hour = 10.0
+	world.wait_until_next()
+	await get_tree().create_timer(2.0).timeout
+	assert_almost_eq(world.day_night.hour, world.EVENING_HOUR, 0.2)
+	world.day_night.hour = 10.0

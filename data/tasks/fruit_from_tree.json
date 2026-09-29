@@ -1,0 +1,41 @@
+{
+  "format": "creature_task/1",
+  "id": "fruit_from_tree",
+  "name": "Frucht vom Baum",
+  "description": "Hoch im großen Baum hängt eine reife Frucht. Wer kommt hinauf und holt sie herunter?",
+  "order": 1,
+  "reward": 20,
+  "context": {
+    "hour": 10.0,
+    "weather": "clear"
+  },
+  "places": {
+    "tree": "fruit_tree:0"
+  },
+  "roles": [
+    {
+      "id": "climber",
+      "name": "Kletterer",
+      "description": "Klettert den Stamm hinauf und holt die Frucht.",
+      "requirements": [
+        {
+          "ability": "climb",
+          "weight": 1.0,
+          "zone": "tree"
+        }
+      ],
+      "threshold": 0.5,
+      "hint_fail": "Die Frucht hing am Ende immer noch am Ast – hinauf kam niemand weit genug.",
+      "hint_fail_far": "Schon nach wenigen Handbreit ging es nicht mehr weiter den Stamm hinauf.",
+      "hint_close": "Beim Klettern war es knapp."
+    }
+  ],
+  "steps": [
+    {
+      "type": "climb_tree",
+      "role": "climber",
+      "place": "tree",
+      "on_success": "drop_fruit"
+    }
+  ]
+}

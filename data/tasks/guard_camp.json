@@ -1,0 +1,41 @@
+{
+  "format": "creature_task/1",
+  "id": "guard_camp",
+  "name": "Lager bewachen",
+  "description": "In der Dämmerung schleicht ein Räuber um das Lager. Wer ihn verscheucht, rettet die Vorräte.",
+  "order": 6,
+  "reward": 35,
+  "unlock_after": "night_walk",
+  "context": {
+    "hour": 19.5,
+    "weather": "clear"
+  },
+  "places": {},
+  "roles": [
+    {
+      "id": "guard",
+      "name": "Wächter",
+      "description": "Baut sich auf und verscheucht den Räuber.",
+      "requirements": [
+        {
+          "ability": "scare",
+          "weight": 0.8
+        },
+        {
+          "ability": "noise",
+          "weight": 0.2
+        }
+      ],
+      "threshold": 0.5,
+      "hint_fail": "Der Räuber ließ sich nicht beeindrucken.",
+      "hint_close": "Der Räuber zögerte lange, bevor er ging."
+    }
+  ],
+  "steps": [
+    {
+      "type": "behavior",
+      "role": "guard",
+      "behavior": "display"
+    }
+  ]
+}

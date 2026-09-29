@@ -2,7 +2,7 @@ extends Control
 ## Startmenü: wählt eine der Debug-Szenen. Neue Szenen einfach in SCENES eintragen.
 
 const SCENES := [
-	["Spielen – Waldwelt", "res://scenes/world/forest.tscn", "Beobachten, Journal, Aufgaben (Spielstand wird gespeichert)"],
+	["Zurück zum Spiel", "res://scenes/world/forest.tscn", "Waldwelt (Spielstand wird gespeichert)"],
 	["Taxonomie-Viewer", "res://scenes/debug/taxonomy_viewer.tscn", "Baum, Glyphen, Ähnlichkeitsregler (M1)"],
 	["Genom-Vergleich", "res://scenes/debug/genome_compare.tscn", "Zwei Kreaturen und ihr Abstand (M1)"],
 	["Kreaturen-Labor", "res://scenes/debug/creature_lab.tscn", "3D-Meshes, IK-Laufen, LOD, FPS (M2)"],

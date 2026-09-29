@@ -54,6 +54,7 @@ func test_successful_fruit_task_moves_fruit_across_and_pays() -> void:
 	var tree: FruitTree = world.terrain.fruit_trees[0]
 	var fruits_before := tree.remaining_fruits()
 	var credits_before: int = world.game.credits
+	var expected_gain: int = world.game.reward_for(task) - world.game.attempt_cost()
 	var r := await _play(task, {"climber": climber, "carrier": carrier})
 	assert_true(r.get("success", false), "gute Besetzung gelingt")
 	assert_eq(tree.remaining_fruits(), fruits_before - 1, "Frucht vom Baum geholt")
@@ -65,7 +66,7 @@ func test_successful_fruit_task_moves_fruit_across_and_pays() -> void:
 	var to_tree := Vector2(tree.global_position.x, tree.global_position.z) - c2
 	var to_fruit := Vector2(fruit.global_position.x, fruit.global_position.z) - c2
 	assert_lt(to_tree.dot(to_fruit), 0.0, "Frucht liegt am anderen Ufer")
-	assert_eq(world.game.credits, credits_before + task.reward, "Belohnung")
+	assert_eq(world.game.credits, credits_before + expected_gain, "Belohnung minus Einsatz")
 	assert_eq(world.game.tasks.fruit_over_stream.successes, 1)
 	assert_false(world.creature_of(climber).scripted)
 

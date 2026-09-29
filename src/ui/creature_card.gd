@@ -1,7 +1,7 @@
 class_name CreatureCard
 extends PanelContainer
-## Karte der ausgewählten Kreatur: Name, Markierung, eigene Gruppe,
-## Einschätzung der Fähigkeiten, Notiz, letzte Beobachtungen.
+## Karte der ausgewählten Kreatur: Name, vermutete Art (eigene Gruppe),
+## Einschätzung der Fähigkeiten, letzte Beobachtungen.
 ## Die Art wird im Spiel nicht angezeigt (nur im Debug-Modus).
 ## Für Fremde (show_stranger): Preis, „Anheuern“ und bisherige Beobachtungen.
 
@@ -93,28 +93,16 @@ func refresh() -> void:
 	if debug_text != "":
 		_box.add_child(UiUtil.label(debug_text, 14, Color(1, 0.8, 0.4)))
 
-	# Markierung
-	var marks := HBoxContainer.new()
-	_box.add_child(marks)
-	marks.add_child(UiUtil.caption("Markierung", 85, 15))
-	var current: int = journal.marks.get(member.id, -1)
-	for i in Journal.MARK_COLORS.size():
-		var b := UiUtil.button("●" if current == i else "○", _set_mark.bind(i), Vector2(32, 40))
-		b.add_theme_color_override("font_color", Journal.MARK_COLORS[i])
-		b.add_theme_color_override("font_hover_color", Journal.MARK_COLORS[i])
-		marks.add_child(b)
-	marks.add_child(UiUtil.button("–", _set_mark.bind(-1), Vector2(32, 40)))
-
 	# Eigene Gruppe („gleiche Art?“)
 	var grow := HBoxContainer.new()
 	_box.add_child(grow)
-	grow.add_child(UiUtil.caption("Gruppe", 85, 15))
+	grow.add_child(UiUtil.caption("Vermutete Art", 110, 15))
 	var opt := OptionButton.new()
 	opt.custom_minimum_size = Vector2(200, 44)
-	opt.add_item("– keine –", 0)
+	opt.add_item("– unbekannt –", 0)
 	for i in journal.groups.size():
 		opt.add_item(journal.groups[i].name, i + 1)
-	opt.add_item("+ neue Gruppe", journal.groups.size() + 1)
+	opt.add_item("+ neue Art", journal.groups.size() + 1)
 	opt.select(journal.group_of(member.id) + 1)
 	opt.item_selected.connect(_on_group_selected)
 	grow.add_child(opt)
@@ -142,16 +130,6 @@ func refresh() -> void:
 		grid.add_child(UiUtil.caption(Journal.RATING_LABELS[r] if r >= 0 else "", 70, 14,
 				RATING_COLORS[r] if r >= 0 else Color(1, 1, 1, 0.5)))
 
-	# Notiz
-	_box.add_child(UiUtil.label("Notiz", 17, Color(0.8, 0.95, 0.6)))
-	var note := TextEdit.new()
-	note.custom_minimum_size = Vector2(0, 70)
-	note.text = journal.notes.get(member.id, "")
-	note.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
-	note.focus_exited.connect(func(): journal.set_note(member.id, note.text))
-	note.text_changed.connect(func(): journal.set_note(member.id, note.text))
-	_box.add_child(note)
-
 	# Beobachtungen
 	_box.add_child(UiUtil.label("Zuletzt beobachtet", 17, Color(0.8, 0.95, 0.6)))
 	var entries := journal.entries_for(member.id, 5)
@@ -161,11 +139,6 @@ func refresh() -> void:
 		_box.add_child(UiUtil.label("%s  %s" % [e.time, e.text], 14))
 
 
-func _set_mark(i: int) -> void:
-	journal.set_mark(member.id, i)
-	refresh()
-
-
 func _set_rating(ability: String, value: int) -> void:
 	journal.set_rating(member.id, ability, value)
 	refresh()
@@ -173,7 +146,7 @@ func _set_rating(ability: String, value: int) -> void:
 
 func _on_group_selected(index: int) -> void:
 	if index == journal.groups.size() + 1:
-		var gi := journal.add_group("Gruppe %d" % (journal.groups.size() + 1))
+		var gi := journal.add_group("Art %s" % char(65 + journal.groups.size() % 26))
 		journal.assign_group(member.id, gi)
 	else:
 		journal.assign_group(member.id, index - 1)

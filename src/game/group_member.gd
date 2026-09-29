@@ -16,6 +16,8 @@ var morphs: Dictionary = {}
 var joined_after := 0
 ## Preis zum Anheuern (nur bei Fremden, sonst 0).
 var price := 0
+## Nach einer gescheiterten Aufgabe bis zum nächsten Morgen nicht einsetzbar.
+var exhausted := false
 
 
 static func from_individual(ind: Individual, display_name: String, joined := 0) -> GroupMember:
@@ -46,7 +48,7 @@ func to_individual() -> Individual:
 
 func to_dict() -> Dictionary:
 	return {"id": id, "name": name, "species": species_id, "index": index, "sex": sex, "age": age,
-			"morphs": morphs, "joined_after": joined_after, "price": price, "genome": genome.to_dict()}
+			"morphs": morphs, "joined_after": joined_after, "price": price, "exhausted": exhausted, "genome": genome.to_dict()}
 
 
 static func from_dict(schema: GenomeSchema, d: Dictionary) -> GroupMember:
@@ -60,5 +62,6 @@ static func from_dict(schema: GenomeSchema, d: Dictionary) -> GroupMember:
 	m.morphs = d.get("morphs", {})
 	m.joined_after = int(d.get("joined_after", 0))
 	m.price = int(d.get("price", 0))
+	m.exhausted = bool(d.get("exhausted", false))
 	m.genome = Genome.from_dict(schema, d.get("genome", {}))
 	return m

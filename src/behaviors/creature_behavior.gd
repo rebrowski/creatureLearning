@@ -18,8 +18,9 @@ var elapsed := 0.0
 var outcome := ""
 ## Anmarsch aufgegeben (Ziel nicht erreichbar).
 var timed_out := false
-## Vorgaben beim Erzwingen (Aufgaben): "forced_outcome" ("success"/"fail") und
-## verhaltensspezifische Ziele (z. B. "tree", "crossing"). Leer bei freier Wahl.
+## Vorgaben beim Erzwingen (Aufgaben, Köder): "forced_outcome" ("success"/"fail"),
+## "speed" (Tempo-Faktor) und verhaltensspezifische Ziele (z. B. "tree",
+## "crossing", "bait"). Leer bei freier Wahl.
 var params: Dictionary = {}
 
 
@@ -77,7 +78,7 @@ func approach_time(distance: float) -> float:
 ## Anmarsch auswerten: true = angekommen (oder nah genug, als die Zeit ablief).
 ## Setzt `timed_out`, wenn aufgegeben werden soll.
 func approach_done(delta: float, limit: float, near := 2.5) -> bool:
-	if brain.mover.step(delta):
+	if brain.mover.step(delta, speed_factor()):
 		return true
 	if elapsed >= limit:
 		if brain.mover.distance_to_goal() < near:
@@ -85,6 +86,11 @@ func approach_done(delta: float, limit: float, near := 2.5) -> bool:
 			return true
 		timed_out = true
 	return false
+
+
+## Tempo-Faktor aus params "speed" (Aufgaben laufen zügiger ab), sonst 1.
+func speed_factor() -> float:
+	return float(params.get("speed", 1.0))
 
 
 ## Ergebnis: vorgegeben (Aufgabe) oder aus dem Können.

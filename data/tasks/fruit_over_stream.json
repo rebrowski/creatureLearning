@@ -3,31 +3,53 @@
   "id": "fruit_over_stream",
   "name": "Frucht über den Bach",
   "description": "Am großen Baum hängt eine reife Frucht hoch oben. Einer holt sie herunter, ein anderer bringt sie über den Bach ans andere Ufer.",
-  "order": 1,
+  "order": 2,
   "reward": 30,
-  "context": { "hour": 10.0, "weather": "clear" },
+  "unlock_after": "fruit_from_tree",
+  "context": {
+    "hour": 10.0,
+    "weather": "clear"
+  },
   "places": {
     "tree": "fruit_tree:0",
     "crossing": "stream_near:tree"
   },
   "roles": [
     {
-      "id": "climber", "name": "Kletterer",
+      "id": "climber",
+      "name": "Kletterer",
       "description": "Klettert den Stamm hinauf und holt die Frucht.",
-      "requirements": [ { "ability": "climb", "weight": 1.0, "zone": "tree" } ],
+      "requirements": [
+        {
+          "ability": "climb",
+          "weight": 1.0,
+          "zone": "tree"
+        }
+      ],
       "threshold": 0.5,
       "hint_fail": "Die Frucht hing am Ende immer noch am Ast – hinauf kam niemand weit genug.",
       "hint_close": "Beim Klettern war es knapp."
     },
     {
-      "id": "carrier", "name": "Träger",
+      "id": "carrier",
+      "name": "Träger",
       "description": "Nimmt die Frucht und bringt sie durch den Bach ans andere Ufer.",
       "requirements": [
-        { "ability": "swim", "weight": 0.7, "zone": "water", "wading": true },
-        { "ability": "carry", "weight": 0.3 }
+        {
+          "ability": "swim",
+          "weight": 0.7,
+          "zone": "water",
+          "wading": true
+        },
+        {
+          "ability": "carry",
+          "weight": 0.3
+        }
       ],
       "threshold": 0.45,
-      "requires": ["climber"],
+      "requires": [
+        "climber"
+      ],
       "hint_fail": "Mitten im Bach ging es nicht weiter – die Frucht trieb davon.",
       "hint_fail_far": "Am Ufer war Schluss – ins Wasser traute sich niemand.",
       "hint_close": "Die Bachquerung war knapp.",
@@ -35,9 +57,25 @@
     }
   ],
   "steps": [
-    { "type": "climb_tree", "role": "climber", "place": "tree", "on_success": "drop_fruit" },
-    { "type": "pick_up", "role": "carrier", "item": "task_fruit" },
-    { "type": "cross_stream", "role": "carrier", "place": "crossing" },
-    { "type": "drop", "role": "carrier" }
+    {
+      "type": "climb_tree",
+      "role": "climber",
+      "place": "tree",
+      "on_success": "drop_fruit"
+    },
+    {
+      "type": "pick_up",
+      "role": "carrier",
+      "item": "task_fruit"
+    },
+    {
+      "type": "cross_stream",
+      "role": "carrier",
+      "place": "crossing"
+    },
+    {
+      "type": "drop",
+      "role": "carrier"
+    }
   ]
 }

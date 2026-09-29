@@ -78,3 +78,9 @@ func take_fruit() -> bool:
 			fruit_taken.emit(remaining_fruits())
 			return true
 	return false
+
+
+## Über Nacht wachsen alle Früchte nach.
+func regrow() -> void:
+	for f in fruits:
+		f.visible = true

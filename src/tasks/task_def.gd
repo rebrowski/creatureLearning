@@ -12,6 +12,8 @@ var description := ""
 var order := 0
 ## Belohnung (Guthaben) beim ersten Erfolg; Wiederholungen siehe progression.json.
 var reward := 0
+## Aufgabe wird erst frei, wenn diese Aufgabe (ID) gelungen ist ("" = von Anfang an).
+var unlock_after := ""
 ## {"hour": float, "weather": String}
 var context: Dictionary = {}
 ## Ortsname -> Ortsangabe (z. B. "fruit_tree:0")
@@ -34,6 +36,7 @@ static func from_dict(d: Variant, catalog: AbilityCatalog, source := "<task>") -
 	t.description = str(d.get("description", ""))
 	t.order = int(d.get("order", 0))
 	t.reward = int(d.get("reward", 0))
+	t.unlock_after = str(d.get("unlock_after", ""))
 	t.context = d.get("context", {})
 	t.places = d.get("places", {})
 	var role_ids := []

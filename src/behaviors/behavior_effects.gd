@@ -12,6 +12,7 @@ static var _disc_mesh: CylinderMesh
 static func dirt_burst(parent: Node, pos: Vector3, strength: float) -> void:
 	if strength <= 0.02:
 		return
+	Sound.play("dig", pos)
 	var p := CPUParticles3D.new()
 	p.one_shot = true
 	p.amount = int(4 + strength * 14)
