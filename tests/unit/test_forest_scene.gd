@@ -156,3 +156,18 @@ func test_cycling_through_creatures() -> void:
 	world.cycle_selection(-1)
 	assert_eq(world.selected, order[-1], "blättert rundum")
 	world._select(null)
+
+
+func test_tempo_speeds_up_everything() -> void:
+	world.set_tempo(2)
+	assert_eq(Engine.time_scale, 2.0, "Kreaturen und Aufgaben laufen mit")
+	assert_eq(world._time_button.text, "Tempo ×2")
+	world.set_tempo(1)
+	assert_eq(world._time_button.text, "Tempo ×1.5")
+	world.set_tempo(world.TIME_SCALES.size() - 1)
+	assert_eq(Engine.time_scale, 0.0)
+	assert_eq(world._time_button.text, "Pause")
+	for s in world.TIME_SCALES:
+		assert_lte(s, 4.0, "nicht zu schnell")
+	world.set_tempo(0)
+	assert_eq(Engine.time_scale, 1.0)

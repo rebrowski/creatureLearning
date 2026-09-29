@@ -43,7 +43,7 @@ vorhandenen Schritttypen auskommen. Beispiel: [`fruit_over_stream.json`](../data
 
 Während ein Schritt läuft, gehen die Beteiligten, die später noch dran sind, schon in
 seine Nähe (etwa 2.6 m). Beteiligte haben Vorrang und stupsen andere Kreaturen
-beiseite. Mit „» Schneller“ läuft die Aufgabe im Zeitraffer (×2.5), „◎ Zur Aufgabe“
+beiseite. Der Knopf „» Tempo“ schaltet das Tempo (1×–4×, Pause) auch während Aufgaben, „◎ Zur Aufgabe“
 bringt die Kamera zurück zur Kreatur, die gerade am Zug ist.
 
 
