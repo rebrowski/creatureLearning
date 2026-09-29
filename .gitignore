@@ -1,0 +1,11 @@
+# Godot
+.godot/
+*.import.tmp
+/android/
+*.apk
+*.aab
+*.tmp
+
+# Test-Ausgaben
+/test_results/
+/build/

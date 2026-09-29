@@ -1,0 +1,55 @@
+{
+  "format": "creature_abilities/1",
+  "notes": "Fähigkeiten. Wert = Grund-Gen (unsichtbar, vererbt) + Kopplung an sichtbare Gene (derived_from), begrenzt auf 0..1; im Einsatz × Kontextfaktor. Felder: docs/abilities_format.md",
+  "abilities": [
+    {
+      "id": "climb", "name": "Klettern",
+      "description": "Felsen und Bäume hinauf.",
+      "derived_from": [ { "gene": "leg_count", "weight": 0.15 }, { "gene": "body_length", "weight": -0.1 } ],
+      "context": { "zones": { "rock": 1.0, "tree": 1.0, "default": 1.0 }, "wetness": -0.35 }
+    },
+    {
+      "id": "swim", "name": "Schwimmen",
+      "description": "Durch den Bach; langbeinige Tiere waten stattdessen.",
+      "derived_from": [ { "gene": "leg_length", "weight": 0.25 }, { "gene": "tail_length", "weight": 0.1 } ],
+      "context": { "night": 0.85 }
+    },
+    {
+      "id": "dig", "name": "Graben",
+      "description": "Löcher in weichen Boden.",
+      "derived_from": [ { "gene": "leg_thickness", "weight": 0.25 }, { "gene": "posture", "weight": -0.15 } ],
+      "context": { "zones": { "bank": 1.2, "clearing": 1.0, "forest": 1.0, "rock": 0.05, "water": 0.0, "default": 0.6 }, "wetness": 0.25 }
+    },
+    {
+      "id": "carry", "name": "Tragen",
+      "description": "Steine oder Früchte transportieren.",
+      "derived_from": [ { "gene": "body_width", "weight": 0.25 }, { "gene": "leg_thickness", "weight": 0.15 } ],
+      "context": { "wetness": -0.1 }
+    },
+    {
+      "id": "noise", "name": "Lärm machen",
+      "description": "Laute Rufe, z. B. um andere zu warnen oder abzulenken.",
+      "derived_from": [ { "gene": "head_size", "weight": 0.2 } ],
+      "context": { "rain": 0.55 }
+    },
+    {
+      "id": "night_vision", "name": "Im Dunkeln sehen",
+      "description": "Aktiv bleiben, wenn es dunkel ist. Nicht am Körperbau erkennbar.",
+      "derived_from": [],
+      "context": {},
+      "darkness_only": true
+    },
+    {
+      "id": "scent", "name": "Wittern",
+      "description": "Nahrung und Gefahr riechen.",
+      "derived_from": [ { "gene": "antenna_length", "weight": 0.3 } ],
+      "context": { "rain": 0.7, "wetness": 0.1 }
+    },
+    {
+      "id": "scare", "name": "Gefahr verscheuchen",
+      "description": "Drohen, groß machen, Raubtiere vertreiben.",
+      "derived_from": [ { "gene": "horn_length", "weight": 0.2 }, { "gene": "crest_height", "weight": 0.15 }, { "gene": "body_length", "weight": 0.1 } ],
+      "context": { "night": 0.8 }
+    }
+  ]
+}

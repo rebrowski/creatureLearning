@@ -1,0 +1,8 @@
+{
+  "format": "progression/1",
+  "notes": "Wer nach einer gelösten Aufgabe neu dazukommt. lookalike_chance: Wahrscheinlichkeit, eine Art zu wählen, die einem Gruppenmitglied ähnlich sieht (kleinste Genom-Distanz zu einer vorhandenen Art), sonst zufällig. Arten, die schon oft vertreten sind, werden seltener gewählt.",
+  "recruits_per_success": 1,
+  "lookalike_chance": 0.7,
+  "max_group_size": 20,
+  "juvenile_chance": 0.15
+}

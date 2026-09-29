@@ -1,0 +1,16 @@
+{
+  "format": "creature_group/1",
+  "notes": "Startgruppe eines neuen Spiels: Art-ID + laufende Nummer (reproduzierbar aus der Taxonomie). Danach steht die Gruppe im Spielstand; neue Mitglieder kommen über data/game/progression.json dazu.",
+  "taxonomy": "res://data/taxonomies/forest_demo.json",
+  "members": [
+    { "species": "stelzus_fluvialis", "index": 0 },
+    { "species": "stelzus_fluvialis", "index": 1 },
+    { "species": "hydropes_minor", "index": 0 },
+    { "species": "talpides_robustus", "index": 0 },
+    { "species": "tessella_maculata", "index": 0 },
+    { "species": "cornula_silvestris", "index": 0 },
+    { "species": "cornula_silvestris", "index": 1 },
+    { "species": "saltator_agilis", "index": 0 },
+    { "species": "mimula_vulgaris", "index": 0 }
+  ]
+}

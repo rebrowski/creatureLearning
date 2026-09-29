@@ -1,0 +1,16 @@
+{
+  "format": "creature_behaviors/1",
+  "notes": "Tuning des Leerlauf-Verhaltens. weight = Grundgewicht im Nutzenvergleich, cooldown = Sekunden, in denen das Verhalten danach seltener gewählt wird, max_time = Abbruch nach Sekunden. Siehe docs/abilities_format.md.",
+  "behaviors": {
+    "wander":     { "weight": 0.55, "cooldown": 0,  "max_time": 40 },
+    "climb_rock": { "weight": 0.6,  "cooldown": 30, "max_time": 110 },
+    "climb_tree": { "weight": 0.5,  "cooldown": 35, "max_time": 110 },
+    "swim":       { "weight": 0.55, "cooldown": 35, "max_time": 110 },
+    "dig":        { "weight": 0.45, "cooldown": 30, "max_time": 12 },
+    "carry":      { "weight": 0.45, "cooldown": 30, "max_time": 110 },
+    "call":       { "weight": 0.35, "cooldown": 30, "max_time": 10 },
+    "sniff":      { "weight": 0.4,  "cooldown": 30, "max_time": 90 },
+    "rest":       { "weight": 0.5,  "cooldown": 15, "max_time": 25 },
+    "display":    { "weight": 0.35, "cooldown": 25, "max_time": 6 }
+  }
+}
