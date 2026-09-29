@@ -43,7 +43,8 @@ vorhandenen Schritttypen auskommen. Beispiel: [`fruit_over_stream.json`](../data
 
 Während ein Schritt läuft, gehen die Beteiligten, die später noch dran sind, schon in
 seine Nähe (etwa 2.6 m). Beteiligte haben Vorrang und stupsen andere Kreaturen
-beiseite. Mit „» Schneller“ läuft die Aufgabe im Zeitraffer (×2.5).
+beiseite. Mit „» Schneller“ läuft die Aufgabe im Zeitraffer (×2.5), „◎ Zur Aufgabe“
+bringt die Kamera zurück zur Kreatur, die gerade am Zug ist.
 
 
 Jeder Schritt einer Rolle läuft mit deren (vorher berechnetem) Ergebnis als vorgegebenem Ausgang –
@@ -64,7 +65,7 @@ Vor dem ersten Schritt versammeln sich die Beteiligten in der Nähe des ersten O
 
 ## Journal
 
-Tippe eine Kreatur an: Karte mit **Markierung** (6 Farben), **eigener Gruppe** („gleiche Art?“),
+Tippe eine Kreatur an (mit ‹ › blätterst du durch alle Kreaturen): Karte mit **Markierung** (6 Farben), **eigener Gruppe** („gleiche Art?“),
 **Einschätzung** jeder Fähigkeit (– / o / +), **Notiz** und den letzten Beobachtungen. Das Journal
 (Knopf oben) listet Kreaturen, Gruppen und das **Protokoll**: Verhaltensweisen, die im Blickfeld
 (≤ 28 m von der Kamera) stattfanden, z. B. „Tamo kletterte auf einen Felsen – hat geklappt“ –

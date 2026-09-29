@@ -34,6 +34,8 @@ var result: Dictionary
 ## role_id -> Creature
 var actors: Dictionary = {}
 var running := false
+## Kreatur, die gerade am Zug ist (Kamera-Knopf „Zur Aufgabe“).
+var active: Creature
 
 var _items: Dictionary = {}  # Name -> Node3D
 ## Creature -> true: Beteiligte, die schon zum Ort des aktuellen Schritts laufen
@@ -190,6 +192,7 @@ func _run_step(step: Dictionary) -> void:
 	_escorts.erase(c)
 	_brain(c).mover.stop()
 	_send_escorts(step, role_id)
+	active = c
 	world.camera.follow = c
 	world.camera.distance = clampf(world.camera.distance, 5.0, 9.0)
 	world.selected = c
