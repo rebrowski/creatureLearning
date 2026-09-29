@@ -33,3 +33,9 @@ func _ready() -> void:
 		b.custom_minimum_size = Vector2(520, 66)
 		b.pressed.connect(get_tree().change_scene_to_file.bind(spec[1]))
 		box.add_child(b)
+	var version := Label.new()
+	version.text = "Version %s" % ProjectSettings.get_setting("application/config/version", "?")
+	version.add_theme_font_size_override("font_size", 16)
+	version.add_theme_color_override("font_color", Color(1, 1, 1, 0.5))
+	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(version)
