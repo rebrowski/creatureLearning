@@ -93,3 +93,7 @@ bringen Guthaben. Startgruppe: 3 Arten à 2 Tiere, davon zwei Doppelgänger-Arte
 - Kamera: Nach einer Zwei-Finger-Geste dreht der letzte Finger nicht mehr (kein
   Kippen beim Loslassen); Sprünge einzelner Touch-Ereignisse werden ignoriert,
   flachster Blickwinkel begrenzt.
+
+### 0.7.2
+- Während Aufgaben: Knopf „◎ Zur Aufgabe“ bringt die Kamera zur Kreatur, die gerade am Zug ist.
+- Kreaturen-Karte: mit ‹ › durch alle Kreaturen blättern (Gruppe, dann Fremde).

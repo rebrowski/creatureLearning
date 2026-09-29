@@ -144,3 +144,15 @@ func test_push_share_prefers_priority_and_movers() -> void:
 	assert_lt(world._push_share(a, b), 0.5, "wer läuft, schiebt Stehende beiseite")
 	assert_true(world.brains[2].mover.yields_to_me(b), "Stehende werden nicht umgangen")
 	a.velocity = Vector3.ZERO
+
+
+func test_cycling_through_creatures() -> void:
+	var order: Array = world.browse_order()
+	assert_eq(order.size(), world.game.members.size() + world.game.offers.size())
+	world._select(order[0])
+	world.cycle_selection(1)
+	assert_eq(world.selected, order[1])
+	world.cycle_selection(-1)
+	world.cycle_selection(-1)
+	assert_eq(world.selected, order[-1], "blättert rundum")
+	world._select(null)

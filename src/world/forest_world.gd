@@ -76,6 +76,7 @@ var _hire_panel: HirePanel
 var _prompt: TaskPrompt
 var _banner: Label
 var _fast: Button
+var _focus: Button
 var _fast_on := false
 var _credits: Label
 var _idle := 0.0
@@ -404,6 +405,7 @@ func start_task(task: TaskDef, assignments: Dictionary) -> void:
 		actors[role_id].priority = 2
 	_update_tags()
 	_fast.visible = true
+	_focus.visible = true
 	_fast.text = "» Schneller"
 	_player = TaskPlayer.new()
 	add_child(_player)
@@ -433,6 +435,7 @@ func _on_task_finished(result: Dictionary, task: TaskDef, role_names: Dictionary
 	_player = null
 	_banner.visible = false
 	_fast.visible = false
+	_focus.visible = false
 	if _fast_on:
 		_set_task_speed(1.0)
 	for c in _roles_shown:
@@ -442,6 +445,37 @@ func _on_task_finished(result: Dictionary, task: TaskDef, role_names: Dictionary
 	_update_tags()
 	_idle = 0.0
 	_result_panel.show_result(task, result, role_names, outcome)
+
+
+## Kamera zur Kreatur, die in der laufenden Aufgabe gerade am Zug ist.
+func focus_active() -> void:
+	if _player == null or _player.active == null or not is_instance_valid(_player.active):
+		return
+	camera.follow = _player.active
+	camera.distance = clampf(camera.distance, 5.0, 9.0)
+
+
+## Reihenfolge beim Durchblättern: Gruppe (wie im Spielstand), dann Fremde.
+func browse_order() -> Array[Creature]:
+	var list: Array[Creature] = []
+	for m in game.members:
+		var c := creature_of(m)
+		if c != null:
+			list.append(c)
+	for o in game.offers:
+		var c := creature_of(o)
+		if c != null:
+			list.append(c)
+	return list
+
+
+## Nächste (+1) bzw. vorherige (-1) Kreatur auswählen.
+func cycle_selection(direction: int) -> void:
+	var list := browse_order()
+	if list.is_empty():
+		return
+	var i := list.find(selected)
+	_select(list[posmod(i + direction, list.size())] if i >= 0 else list[0])
 
 
 func _toggle_fast() -> void:
@@ -625,6 +659,14 @@ func _build_hud() -> void:
 	_fast.offset_bottom = -16
 	_fast.visible = false
 	ui.add_child(_fast)
+	_focus = UiUtil.button("◎ Zur Aufgabe", focus_active, Vector2(190, 48))
+	_focus.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+	_focus.offset_left = -400
+	_focus.offset_top = -64
+	_focus.offset_right = -210
+	_focus.offset_bottom = -16
+	_focus.visible = false
+	ui.add_child(_focus)
 
 	_card = CreatureCard.new()
 	_card.visible = false
@@ -635,6 +677,7 @@ func _build_hud() -> void:
 	_card.offset_right = -10
 	_card.closed.connect(func(): _select(null))
 	_card.hire_requested.connect(hire)
+	_card.cycle_requested.connect(cycle_selection)
 	ui.add_child(_card)
 	_journal_panel = JournalPanel.new()
 	_journal_panel.member_chosen.connect(func(id):

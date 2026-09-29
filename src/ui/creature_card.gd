@@ -7,6 +7,8 @@ extends PanelContainer
 
 signal closed
 signal hire_requested(offer: GroupMember)
+## -1 = vorherige, +1 = nächste Kreatur zeigen
+signal cycle_requested(direction: int)
 
 const RATING_COLORS := {0: Color(1.0, 0.55, 0.45), 1: Color(1.0, 0.85, 0.4), 2: Color(0.55, 1.0, 0.45)}
 
@@ -50,6 +52,7 @@ func show_stranger(offer: GroupMember, title: String, p_journal: Journal, proble
 	var t := UiUtil.caption(title, 0, 24)
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(t)
+	_nav_buttons(head)
 	head.add_child(UiUtil.button("✕", func(): visible = false; closed.emit(), Vector2(48, 48)))
 	_box.add_child(UiUtil.label("%s%s · gehört noch nicht zur Gruppe" % ["♂" if offer.sex == "male" else "♀", " · Jungtier" if offer.age == "juvenile" else ""], 15, Color(1, 1, 1, 0.7)))
 	if debug_text != "":
@@ -68,6 +71,12 @@ func show_stranger(offer: GroupMember, title: String, p_journal: Journal, proble
 		_box.add_child(UiUtil.label("%s  %s" % [e.time, e.text], 14))
 
 
+## ‹ › zum Durchblättern aller Kreaturen.
+func _nav_buttons(head: HBoxContainer) -> void:
+	head.add_child(UiUtil.button("‹", func(): cycle_requested.emit(-1), Vector2(48, 48)))
+	head.add_child(UiUtil.button("›", func(): cycle_requested.emit(1), Vector2(48, 48)))
+
+
 func refresh() -> void:
 	UiUtil.clear(_box)
 	if member == null:
@@ -77,6 +86,7 @@ func refresh() -> void:
 	var title := UiUtil.caption(member.name, 0, 24)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(title)
+	_nav_buttons(head)
 	head.add_child(UiUtil.button("✕", func(): visible = false; closed.emit(), Vector2(48, 48)))
 	var info := "%s%s" % ["♂" if member.sex == "male" else "♀", " · Jungtier" if member.age == "juvenile" else ""]
 	_box.add_child(UiUtil.label(info, 15, Color(1, 1, 1, 0.7)))
