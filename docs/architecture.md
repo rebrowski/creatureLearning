@@ -63,10 +63,12 @@ core                                  (M1)  Ränge, Seeds, JSON
 | `src/taxonomy/species_diagnostics.gd` | Trennschärfe einzelner Gene zwischen zwei Arten (Designwerkzeug). |
 | `src/world/forest_world.gd` | Wurzel der Waldszene: Spielstand, Gruppe, Fremde, Anheuern, Überlappungen auflösen, Beobachtungsprotokoll, Aufgaben, HUD, Hinweis „Aufgabe starten?“. |
 | `src/game/game_state.gd`, `group_member.gd` | Spielstand (JSON, mit Genomen), Gruppe, Guthaben, Fremde und Anheuern. |
+| `src/game/sfx.gd`, `sound.gd` | Autoload „Sfx“ (Geräusche aus `assets/sounds`, Vibration) und statischer Zugriff `Sound`. |
+| `src/world/bait.gd`, `src/behaviors/seek_behavior.gd` | Köder und die Suche danach (Köder-Experimente). |
 | `src/game/ui_settings.gd` | Oberflächen-Skalierung (auto nach Bildschirmgröße), Namensschilder, Hinweis an/aus. |
 | `src/journal/journal.gd` | Markierungen, eigene Gruppen, Notizen, Einschätzungen, Protokoll. |
 | `src/tasks/task_def.gd`, `task_catalog.gd`, `task_simulator.gd`, `task_player.gd` | Aufgaben aus JSON, Bewertung, Wiedergabe mit den echten Kreaturen. |
-| `src/ui/*` | Kreaturen-Karte, Journal, Aufgabenwahl, Auswertung, Anheuern, Aufgaben-Hinweis (im Code gebaut, touchfreundlich, passen sich der Bildschirmgröße an). |
+| `src/ui/*` | Kreaturen-Karte, Journal mit Bestimmungsbuch, Aufgabenwahl (Rollen per Antippen), Auswertung, Artfrage, Einführung, Anheuern, Aufgaben-Hinweis (im Code gebaut, touchfreundlich, passen sich der Bildschirmgröße an). |
 | `tools/build_forest.gd` | Erzeugt `forest.tscn` inkl. Spatial-Gardener-Vegetation. |
 | `src/debug/*` | Menü, Viewer, 2D-Glyphen, Vergleich, Kreaturen-Labor, Menü-Knopf (Autoload `DebugNav`). |
 | `tools/screenshot.gd` | Szene rendern und als PNG speichern (für visuelle Prüfung). |

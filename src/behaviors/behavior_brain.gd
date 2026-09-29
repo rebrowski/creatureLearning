@@ -40,7 +40,7 @@ func _init(p_creature: Creature, p_navigation: ForestNavigation, p_context: Worl
 	mover = NavMover.new(creature, navigation)
 	for b in [WanderBehavior.new(), ClimbRockBehavior.new(), ClimbTreeBehavior.new(), SwimBehavior.new(),
 			DigBehavior.new(), CarryBehavior.new(), CallBehavior.new(), SniffBehavior.new(),
-			RestBehavior.new(), DisplayBehavior.new()]:
+			RestBehavior.new(), DisplayBehavior.new(), SeekBehavior.new()]:
 		b.setup(self)
 		behaviors.append(b)
 

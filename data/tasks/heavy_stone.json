@@ -1,0 +1,37 @@
+{
+  "format": "creature_task/1",
+  "id": "heavy_stone",
+  "name": "Schwerer Stein",
+  "description": "Für das Lager wird ein großer Stein gebraucht. Wer ist stark genug, ihn zu schleppen?",
+  "order": 5,
+  "reward": 25,
+  "unlock_after": "fruit_over_stream",
+  "context": {
+    "hour": 11.0,
+    "weather": "clear"
+  },
+  "places": {},
+  "roles": [
+    {
+      "id": "carrier",
+      "name": "Schlepper",
+      "description": "Trägt einen schweren Stein zum Lager.",
+      "requirements": [
+        {
+          "ability": "carry",
+          "weight": 1.0
+        }
+      ],
+      "threshold": 0.6,
+      "hint_fail": "Der Stein bewegte sich keinen Meter.",
+      "hint_close": "Mit viel Ächzen kam der Stein an."
+    }
+  ],
+  "steps": [
+    {
+      "type": "behavior",
+      "role": "carrier",
+      "behavior": "carry"
+    }
+  ]
+}

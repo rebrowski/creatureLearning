@@ -3,40 +3,76 @@
   "id": "night_walk",
   "name": "Nachts zum großen Felsen",
   "description": "Es ist dunkel. Einer findet den Weg zum großen Felsen, ein anderer ruft die Gruppe zusammen, damit niemand zurückbleibt.",
-  "order": 2,
+  "order": 4,
   "reward": 45,
-  "context": { "hour": 23.0, "weather": "clear" },
+  "unlock_after": "truffle_hunt",
+  "context": {
+    "hour": 23.0,
+    "weather": "clear"
+  },
   "places": {
     "rock": "rock:largest",
     "start": "spawn"
   },
   "roles": [
     {
-      "id": "scout", "name": "Späher",
+      "id": "scout",
+      "name": "Späher",
       "description": "Findet im Dunkeln den Weg und läuft voraus.",
       "requirements": [
-        { "ability": "night_vision", "weight": 0.7, "dark": true },
-        { "ability": "scent", "weight": 0.3 }
+        {
+          "ability": "night_vision",
+          "weight": 0.7,
+          "dark": true
+        },
+        {
+          "ability": "scent",
+          "weight": 0.3
+        }
       ],
       "threshold": 0.55,
       "hint_fail": "Im Dunkeln lief die Gruppe im Kreis – der Weg wurde nicht gefunden.",
       "hint_close": "Der Weg durch die Nacht war knapp gefunden."
     },
     {
-      "id": "caller", "name": "Rufer",
+      "id": "caller",
+      "name": "Rufer",
       "description": "Ruft laut, damit alle dem Späher folgen.",
-      "requirements": [ { "ability": "noise", "weight": 1.0 } ],
+      "requirements": [
+        {
+          "ability": "noise",
+          "weight": 1.0
+        }
+      ],
       "threshold": 0.4,
-      "requires": ["scout"],
+      "requires": [
+        "scout"
+      ],
       "hint_fail": "Die Rufe waren zu leise – die anderen fanden nicht nach.",
       "hint_close": "Die Rufe kamen gerade noch an.",
       "hint_skipped": "Ohne gefundenen Weg gab es nichts zu rufen."
     }
   ],
   "steps": [
-    { "type": "behavior", "role": "scout", "behavior": "sniff" },
-    { "type": "walk_to", "role": "scout", "place": "rock" },
-    { "type": "behavior", "role": "caller", "behavior": "call" },
-    { "type": "follow", "role": "caller", "leader": "scout" }
+    {
+      "type": "behavior",
+      "role": "scout",
+      "behavior": "sniff"
+    },
+    {
+      "type": "walk_to",
+      "role": "scout",
+      "place": "rock"
+    },
+    {
+      "type": "behavior",
+      "role": "caller",
+      "behavior": "call"
+    },
+    {
+      "type": "follow",
+      "role": "caller",
+      "leader": "scout"
+    }
   ]
 }

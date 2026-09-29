@@ -1,7 +1,9 @@
 extends CanvasLayer
-## Autoload: blendet in allen Szenen außer dem Menü einen „Menü“-Knopf ein
-## (oben rechts); Esc bzw. Android-Zurück führt ebenfalls zum Menü,
-## Zurück im Menü beendet die App. Setzt außerdem die Oberflächen-Skalierung
+## Autoload: Das Spiel startet direkt in der Waldwelt (GAME). Die Entwickler-
+## Szenen erreicht man über Optionen → Debug → „Entwicklermenü“ (MENU). In den
+## Entwickler-Szenen blendet dieser Knoten oben rechts „Menü“ ein; Esc bzw.
+## Android-Zurück führt von dort ins Menü, vom Menü ins Spiel, im Spiel
+## beendet Zurück die App. Setzt außerdem die Oberflächen-Skalierung
 ## (UiSettings) für alle Szenen.
 ##
 ## Web-App (PWA): Der Service Worker speichert das Spiel offline und liefert
@@ -10,6 +12,7 @@ extends CanvasLayer
 ## („Neue Version laden“, speichert vorher).
 
 const MENU := "res://scenes/main.tscn"
+const GAME := "res://scenes/world/forest.tscn"
 
 var _button: Button
 var _update_button: Button
@@ -46,7 +49,8 @@ func _ready() -> void:
 
 func _on_update_available() -> void:
 	var scene := get_tree().current_scene
-	if scene == null or scene.scene_file_path == MENU:
+	# direkt nach dem Start (Spiel noch kaum begonnen) oder im Menü sofort laden
+	if scene == null or scene.scene_file_path == MENU or Time.get_ticks_msec() < 10000:
 		_apply_update()
 	else:
 		_update_button.visible = true
@@ -61,7 +65,7 @@ func _apply_update() -> void:
 
 func _process(_delta: float) -> void:
 	var scene := get_tree().current_scene
-	_button.visible = scene != null and scene.scene_file_path != MENU
+	_button.visible = scene != null and scene.scene_file_path != MENU and scene.scene_file_path != GAME
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -72,10 +76,13 @@ func _unhandled_input(event: InputEvent) -> void:
 func _notification(what: int) -> void:
 	if what != NOTIFICATION_WM_GO_BACK_REQUEST or _button == null:
 		return
+	var scene := get_tree().current_scene
 	if _button.visible:
 		_to_menu()
+	elif scene != null and scene.scene_file_path == MENU:
+		get_tree().change_scene_to_file(GAME)
 	else:
-		get_tree().quit()  # Zurück im Menü beendet die App
+		get_tree().quit()  # Zurück im Spiel beendet die App
 
 
 func _to_menu() -> void:

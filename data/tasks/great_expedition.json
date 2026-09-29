@@ -1,0 +1,105 @@
+{
+  "format": "creature_task/1",
+  "id": "great_expedition",
+  "name": "Große Expedition",
+  "description": "Die größte Aufgabe: Frucht holen, über den Bach bringen und alle zusammenrufen.",
+  "order": 9,
+  "reward": 80,
+  "unlock_after": "night_harvest",
+  "context": {
+    "hour": 12.0,
+    "weather": "clear"
+  },
+  "places": {
+    "tree": "fruit_tree:1",
+    "crossing": "stream_near:tree"
+  },
+  "roles": [
+    {
+      "id": "climber",
+      "name": "Kletterer",
+      "description": "Klettert den Stamm hinauf und holt die Frucht.",
+      "requirements": [
+        {
+          "ability": "climb",
+          "weight": 1.0,
+          "zone": "tree"
+        }
+      ],
+      "threshold": 0.5,
+      "hint_fail": "Die Frucht hing am Ende immer noch am Ast – hinauf kam niemand weit genug.",
+      "hint_fail_far": "Schon nach wenigen Handbreit ging es nicht mehr weiter den Stamm hinauf.",
+      "hint_close": "Beim Klettern war es knapp."
+    },
+    {
+      "id": "carrier",
+      "name": "Träger",
+      "description": "Bringt die Frucht durch den Bach.",
+      "requirements": [
+        {
+          "ability": "swim",
+          "weight": 0.7,
+          "zone": "water",
+          "wading": true
+        },
+        {
+          "ability": "carry",
+          "weight": 0.3
+        }
+      ],
+      "threshold": 0.5,
+      "requires": [
+        "climber"
+      ],
+      "hint_fail": "Mitten im Bach ging es nicht weiter – die Frucht trieb davon.",
+      "hint_fail_far": "Am Ufer war Schluss – ins Wasser traute sich niemand.",
+      "hint_close": "Die Bachquerung war knapp.",
+      "hint_skipped": "Der Träger hatte nichts zu tragen."
+    },
+    {
+      "id": "caller",
+      "name": "Rufer",
+      "description": "Ruft die Gruppe ans andere Ufer.",
+      "requirements": [
+        {
+          "ability": "noise",
+          "weight": 1.0
+        }
+      ],
+      "threshold": 0.45,
+      "requires": [
+        "carrier"
+      ],
+      "hint_fail": "Die Rufe verhallten ungehört.",
+      "hint_close": "Die Rufe kamen gerade noch an.",
+      "hint_skipped": "Ohne Frucht drüben gab es nichts zu rufen."
+    }
+  ],
+  "steps": [
+    {
+      "type": "climb_tree",
+      "role": "climber",
+      "place": "tree",
+      "on_success": "drop_fruit"
+    },
+    {
+      "type": "pick_up",
+      "role": "carrier",
+      "item": "task_fruit"
+    },
+    {
+      "type": "cross_stream",
+      "role": "carrier",
+      "place": "crossing"
+    },
+    {
+      "type": "drop",
+      "role": "carrier"
+    },
+    {
+      "type": "behavior",
+      "role": "caller",
+      "behavior": "call"
+    }
+  ]
+}

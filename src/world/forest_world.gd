@@ -1,4 +1,7 @@
 extends Node3D
+
+## Ein Köder-Experiment ist vorbei (alle Kreaturen haben es versucht).
+signal bait_resolved(bait_kind: String, got_it: String)
 ## Wurzel der Waldwelt: verbindet Gelände, Navigation, Tageszeit, Wetter und
 ## Kamera, lädt den Spielstand (oder startet ein neues Spiel), setzt die Gruppe
 ## und die Fremden am Waldrand ein, protokolliert Beobachtungen, führt Aufgaben
@@ -11,7 +14,9 @@ extends Node3D
 ## Tempo-Stufen (Knopf „Tempo“): beschleunigt alles – Kreaturen, Aufgaben und
 ## Tageszeit (Engine.time_scale); 0 = Pause.
 const TIME_SCALES := [1.0, 1.5, 2.0, 3.0, 4.0, 0.0]
-const WEATHER_MODES := ["auto", "clear", "cloudy", "rain"]
+## „Warten“: springt zum nächsten Abend bzw. Morgen (Uhrzeit).
+const EVENING_HOUR := 19.5
+const MORNING_WAKE := 7.0
 const WEATHER_LABELS := {"clear": "klar", "cloudy": "bewölkt", "rain": "Regen"}
 const PHASE_LABELS := {"night": "Nacht", "dawn": "Morgen", "day": "Tag", "dusk": "Abend"}
 ## Beobachtungen werden protokolliert, wenn die Kreatur höchstens so weit von der Kamera entfernt ist.
@@ -28,11 +33,18 @@ const STRANGER_ROAM := 5.0
 const TAG_MEMBER := Color(1, 1, 1)
 const TAG_STRANGER := Color(1.0, 0.75, 0.35)
 const TAG_ROLE := Color(1.0, 0.92, 0.45)
+const TAG_TIRED := Color(0.7, 0.7, 0.8)
+## Köder: so weit reagieren Kreaturen, höchstens so viele probieren es.
+const BAIT_RADIUS := 14.0
+const BAIT_MAX_TRIALS := 3
+## Zeitraffer für „Überspringen“ (schon gesehene Aufgaben).
+const SKIP_SPEED := 6.0
 ## Vergangenheitsform für das Protokoll
 const PAST := {
 	"climb_rock": "kletterte auf einen Felsen", "climb_tree": "kletterte auf einen Baum",
 	"swim": "ging ins Wasser", "dig": "grub ein Loch", "carry": "wollte einen Stein tragen",
 	"call": "rief laut", "sniff": "witterte", "rest": "ruhte sich aus", "display": "drohte",
+	"seek": "suchte eine Beere",
 }
 const OUTCOME := {"success": " – hat geklappt", "fail": " – hat nicht geklappt", "": ""}
 
@@ -65,24 +77,40 @@ var test_creatures: Array[Creature] = []
 var _status: Label
 var _info: Label
 var _time_button: Button
-var _weather_button: Button
+var _wait_button: Button
 var _time_index := 0
-var _weather_index := 0
 var _card: CreatureCard
 var _journal_panel: JournalPanel
 var _task_panel: TaskPanel
 var _result_panel: ResultPanel
 var _hire_panel: HirePanel
 var _prompt: TaskPrompt
+var _intro: IntroPanel
+var _question: SpeciesQuestionPanel
+var _intro_timer := 0.0
+var _intro_ratings := 0
 var _banner: Label
 var _fast: Button
 var _focus: Button
+var _skip: Button
+var _skipping := false
 var _credits: Label
 var _idle := 0.0
+var _last_hour := -1.0
+var _morning_hour := -1.0
 var _prompt_after := PROMPT_IDLE
 var _prompt_enabled := true
 ## Creature -> Rollenname, solange eine Aufgabe läuft
 var _roles_shown: Dictionary = {}
+## Rollenwahl durch Antippen: {"task": TaskDef, "role": String} oder leer
+var _picking: Dictionary = {}
+## Köder-Modus: nächstes Antippen legt eine Beere aus
+var _baiting := false
+var _bait_button: Button
+## laufende Köder-Versuche: [{"brain", "behavior"}]; bait_resolved, wenn alle fertig sind
+var _bait_trials: Array = []
+var _bait_info: Dictionary = {}
+var _pick_cancel: Button
 var _player: TaskPlayer
 var _history_seen: Dictionary = {}  # BehaviorBrain -> Anzahl bereits gesehener Einträge
 var _autosave := AUTOSAVE_SECONDS
@@ -116,6 +144,7 @@ func _ready() -> void:
 	GraphicsSettings.apply(graphics_level, get_node_or_null("Sun"), get_viewport())
 	day_night.hour = game.hour
 	weather.set_state(game.weather)
+	weather.auto_change = true
 	catalog = AbilityCatalog.load_file(game.schema)
 	tasks = TaskCatalog.load_dir(catalog)
 	if not tasks.errors.is_empty():
@@ -128,8 +157,15 @@ func _ready() -> void:
 		_spawn_member(game.members[i], _spawn_point(l, i))
 	for o in game.offers:
 		_spawn_stranger(o)
+	_ensure_needed_offer()
 	_spawn_items(l)
 	_update_tags()
+	bait_resolved.connect(_on_bait_resolved)
+	game.journal.changed.connect(func():
+		if game.intro_step == 2 and _rating_count() > _intro_ratings:
+			_intro_next())
+	if game.intro_step < GameState.INTRO_DONE:
+		_intro_show.call_deferred()
 
 
 func _exit_tree() -> void:
@@ -157,6 +193,7 @@ func _physics_process(delta: float) -> void:
 	for b in brains:
 		b.update(delta)
 	_separate(delta)
+	_check_bait_trials()
 	_observe()
 	_autosave -= delta
 	if _autosave <= 0.0 or (_save_pending and _autosave < AUTOSAVE_SECONDS - 3.0):
@@ -173,6 +210,11 @@ func _process(delta: float) -> void:
 	perf.tick()
 	if game == null or _status == null:
 		return
+	_check_morning()
+	if game.intro_step == 2:
+		_intro_timer += delta
+		if _intro_timer > 40.0:
+			_intro_next()
 	_update_prompt(delta)
 	_credits.text = "%d %s" % [game.credits, GameState.currency()]
 	var h := day_night.hour
@@ -184,9 +226,9 @@ func _process(delta: float) -> void:
 			Engine.get_frames_per_second(), st.avg, st.p95, st.max,
 			Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), GraphicsSettings.LABELS[graphics_level],
 			lod[0], lod[1], lod[2], lod[3], int(day_night.light_level() * 100.0), int(weather.wetness * 100.0)]
-	_status.text = "%02d:%02d %s · Wetter %s · %d Kreaturen%s" % [
+	_status.text = "%02d:%02d %s · Wetter %s · Gruppe: %d%s" % [
 		int(h), int(fposmod(h, 1.0) * 60.0), PHASE_LABELS[day_night.phase()], WEATHER_LABELS[weather.state],
-		creatures.size() - test_creatures.size(), extra]
+		game.members.size(), extra]
 	if _player != null and _player.running:
 		_info.text = ""
 	elif selected != null and _member_of(selected) != null:
@@ -353,6 +395,17 @@ func _observe() -> void:
 func _on_tap(pos: Vector2) -> void:
 	if _player != null and _player.running:
 		return
+	if not _picking.is_empty():
+		_pick_at(pos)
+		return
+	if _baiting:
+		place_bait_at_screen(pos)
+		return
+	_select(creature_at(pos))
+
+
+## Kreatur unter einem Bildschirmpunkt (oder null).
+func creature_at(pos: Vector2) -> Creature:
 	var best: Creature = null
 	var best_d := 70.0
 	for c in creatures:
@@ -362,7 +415,222 @@ func _on_tap(pos: Vector2) -> void:
 		if d < best_d:
 			best_d = d
 			best = c
-	_select(best)
+	return best
+
+
+# --- Einführung ------------------------------------------------------------------
+## 0 Begrüßung · 1 Köder an den Fruchtbaum · 2 Einschätzung festhalten ·
+## 3 erste Aufgabe öffnen. Danach INTRO_DONE.
+
+func _intro_show() -> void:
+	match game.intro_step:
+		0:
+			_intro.open()
+		1:
+			var tree: FruitTree = terrain.fruit_trees[0]
+			camera.follow = null
+			camera.target = tree.global_position
+			camera.distance = 11.0
+			# ein paar Gruppenmitglieder in die Nähe des Baums holen, damit der Köder wirkt
+			var n := 0
+			for c in members:
+				if n >= 4:
+					break
+				var a := TAU * n / 4.0 + 0.4
+				c.global_position = tree.global_position + Vector3(cos(a), 0.0, sin(a)) * (4.0 + n * 0.7)
+				c.locomotion.reset(c.global_transform)
+				n += 1
+			_intro_banner("Hoch im Baum hängt eine Frucht. Wer von euch kommt hinauf?
+Tippe auf „Köder“ und dann an den Baumstamm – wer die Beere holt, zeigt, was er kann.")
+		2:
+			_intro_timer = 0.0
+			_intro_ratings = _rating_count()
+			_intro_banner("Gut beobachtet! Tippe die Kreatur an, die hinaufkam, und halte unter „Meine Einschätzung“ bei Klettern fest, was du gesehen hast.")
+		3:
+			game.intro_step = GameState.INTRO_DONE
+			_banner.visible = false
+			var first: TaskDef = tasks.tasks[0] if not tasks.tasks.is_empty() else null
+			if first != null:
+				_card.visible = false
+				_task_panel.open(game, tasks, first, catalog)
+			save_game()
+
+
+func _rating_count() -> int:
+	var n := 0
+	for id in game.journal.ratings:
+		n += game.journal.ratings[id].size()
+	return n
+
+
+func _intro_banner(text: String) -> void:
+	_banner.text = text
+	_banner.visible = true
+
+
+func _intro_next() -> void:
+	game.intro_step += 1
+	_intro_show()
+
+
+func _on_bait_resolved(kind: String, who: String) -> void:
+	if who != "":
+		_show_note("%s hat die Beere geholt." % who)
+	else:
+		_show_note("Niemand hat die Beere erreicht.")
+	if game.intro_step == 1:
+		get_tree().create_timer(2.0).timeout.connect(_intro_next)
+
+
+# --- Köder ----------------------------------------------------------------------
+
+func _toggle_bait_mode() -> void:
+	if _player != null:
+		return
+	_baiting = not _baiting
+	if _baiting:
+		var cost := int(GameState.progression().get("bait_cost", 1))
+		if game.credits < cost:
+			_baiting = false
+			_show_note("Kein Guthaben für einen Köder.")
+			return
+		_card.visible = false
+		_banner.text = "Tippe auf den Boden, ins Wasser oder an einen Baumstamm."
+		_banner.visible = true
+	else:
+		_banner.visible = false
+	_bait_button.text = "Abbrechen" if _baiting else "Köder"
+
+
+## Bildschirmpunkt → Köder in der Welt (Boden, Bach oder Baumstamm).
+func place_bait_at_screen(pos: Vector2) -> void:
+	var from := camera.project_ray_origin(pos)
+	var q := PhysicsRayQueryParameters3D.create(from, from + camera.project_ray_normal(pos) * 200.0, terrain.ground_layer)
+	var hit := get_world_3d().direct_space_state.intersect_ray(q)
+	if hit.is_empty():
+		return
+	place_bait(hit.position)
+
+
+## Köder an einer Weltposition auslegen. Rückgabe: der Köder (oder null).
+func place_bait(p: Vector3) -> Bait:
+	var l := terrain.layout
+	var cost := int(GameState.progression().get("bait_cost", 1))
+	if game.credits < cost:
+		return null
+	var bait := Bait.new()
+	var tree: FruitTree = null
+	for t in terrain.fruit_trees:
+		if Vector2(t.global_position.x - p.x, t.global_position.z - p.z).length() < 2.0:
+			tree = t
+	var pos := Vector3(p.x, l.height_at(p.x, p.z), p.z)
+	if tree != null:
+		bait.kind = "tree"
+		var out := Vector3(p.x - tree.global_position.x, 0.0, p.z - tree.global_position.z)
+		out = out.normalized() if out.length() > 0.01 else Vector3.FORWARD
+		pos = tree.global_position + out * 0.4 + Vector3.UP * minf(tree.fruit_height * 0.75, 3.5)
+	elif l.zone_at(p.x, p.z) == "water":
+		bait.kind = "water"
+		var c: Vector2 = l.stream_info(p.x, p.z).closest
+		pos = Vector3(c.x, l.water_level_at(c.x, c.y) - 0.05, c.y)
+	creature_root.add_child(bait)
+	bait.global_position = pos
+	game.credits -= cost
+	_baiting = false
+	_bait_button.text = "Köder"
+	_banner.visible = false
+	_start_bait_trials(bait, tree)
+	return bait
+
+
+## Bis zu BAIT_MAX_TRIALS nahe Kreaturen versuchen, die Beere zu holen.
+func _start_bait_trials(bait: Bait, tree: FruitTree) -> void:
+	var near: Array = []
+	for i in creatures.size():
+		var c := creatures[i]
+		var m := _member_of(c)
+		if c.scripted or test_creatures.has(c) or (m != null and m.exhausted):
+			continue
+		var d := c.global_position.distance_to(bait.global_position)
+		if d < BAIT_RADIUS:
+			near.append([d, i])
+	near.sort_custom(func(a, b): return a[0] < b[0])
+	_bait_trials.clear()
+	_bait_info = {"kind": bait.kind, "who": ""}
+	bait.taken.connect(func(c: Creature): _bait_info.who = _member_of(c).name if _member_of(c) != null else "")
+	for entry in near.slice(0, BAIT_MAX_TRIALS):
+		var b := brains[entry[1]]
+		if bait.kind == "tree" and _bait_trials.size() >= 2:
+			break  # am Stamm ist nur für zwei Platz
+		var id := "seek"
+		var p := {"bait": bait}
+		match bait.kind:
+			"tree":
+				id = "climb_tree"
+				p["tree"] = tree
+				p["top_wait"] = 1.0
+			"water":
+				id = "swim"
+				p["crossing"] = Vector2(bait.global_position.x, bait.global_position.z)
+		b.force(id, p)
+		_bait_trials.append({"brain": b, "behavior": b.current, "bait": bait})
+	if _bait_trials.is_empty():
+		_show_note("Niemand ist in der Nähe – leg den Köder näher an die Kreaturen.")
+	else:
+		camera.follow = null
+		camera.target = bait.global_position
+
+
+func _check_bait_trials() -> void:
+	if _bait_trials.is_empty():
+		return
+	for t in _bait_trials:
+		if t.brain.current == t.behavior:
+			return
+	_bait_trials.clear()
+	bait_resolved.emit(_bait_info.get("kind", ""), _bait_info.get("who", ""))
+
+
+# --- Rollen durch Antippen besetzen -------------------------------------------
+
+func _begin_pick(task: TaskDef, role_id: String) -> void:
+	_picking = {"task": task, "role": role_id}
+	_card.visible = false
+	camera.follow = null
+	_banner.text = "Wähle: %s – tippe eine Kreatur an" % task.role(role_id).name
+	_banner.visible = true
+	_pick_cancel.visible = true
+
+
+func _end_pick(reopen := true) -> void:
+	var task: TaskDef = _picking.get("task")
+	_picking = {}
+	_banner.visible = false
+	_pick_cancel.visible = false
+	if reopen and task != null:
+		_task_panel.open(game, tasks, task, catalog)
+
+
+func _pick_at(pos: Vector2) -> void:
+	var c := creature_at(pos)
+	if c != null:
+		pick_creature(c)
+
+
+## Kreatur für die gerade gewählte Rolle übernehmen. true = besetzt.
+func pick_creature(c: Creature) -> bool:
+	if strangers.has(c):
+		_banner.text = "%s gehört noch nicht zur Gruppe – erst anheuern. Wähle jemand anderen." % strangers[c].name
+		return false
+	var m: GroupMember = members.get(c)
+	if m == null or test_creatures.has(c):
+		return false
+	if m.exhausted:
+		_banner.text = "%s ist erschöpft und ruht bis morgen früh. Wähle jemand anderen." % m.name
+		return false
+	_task_panel.assign(_picking.role, m, _picking.task)
+	_end_pick()
+	return true
 
 
 func _select(c: Creature) -> void:
@@ -411,12 +679,13 @@ func start_task(task: TaskDef, assignments: Dictionary) -> void:
 	_update_tags()
 	_fast.visible = true
 	_focus.visible = true
+	_skip.visible = game.tasks.get(task.id, {}).get("attempts", 0) > 0
 	_player = TaskPlayer.new()
 	add_child(_player)
 	_player.step_started.connect(func(t):
 		_banner.text = t
 		_banner.visible = t != "")
-	_player.finished.connect(_on_task_finished.bind(task, role_names), CONNECT_ONE_SHOT)
+	_player.finished.connect(_on_task_finished.bind(task, role_names, assignments), CONNECT_ONE_SHOT)
 	_player.play(self, task, result, actors, names)
 
 
@@ -430,23 +699,35 @@ func creature_of(m: GroupMember) -> Creature:
 	return null
 
 
-func _on_task_finished(result: Dictionary, task: TaskDef, role_names: Dictionary) -> void:
-	var outcome := game.record_task(task, result.success)
+func _on_task_finished(result: Dictionary, task: TaskDef, role_names: Dictionary, assignments: Dictionary = {}) -> void:
+	var failed := []
+	for role_id in assignments:
+		var e: Dictionary = result.roles.get(role_id, {})
+		if not e.get("success", false) and not e.get("skipped", false):
+			failed.append(assignments[role_id])
+	var outcome := game.record_task(task, result.success, failed)
+	weather.auto_change = true
 	for o in outcome.new_offers:
 		_spawn_stranger(o)
+	if result.success:
+		_ensure_needed_offer()
 	save_game()
 	_player.queue_free()
 	_player = null
 	_banner.visible = false
 	_fast.visible = false
 	_focus.visible = false
+	_skip.visible = false
+	if _skipping:
+		_skipping = false
+		set_tempo(_time_index)
 	for c in _roles_shown:
 		if is_instance_valid(c):
 			c.priority = 0
 	_roles_shown.clear()
 	_update_tags()
 	_idle = 0.0
-	_result_panel.show_result(task, result, role_names, outcome)
+	_result_panel.show_result(task, result, role_names, outcome, assignments, game.journal, catalog)
 
 
 ## Kamera zur Kreatur, die in der laufenden Aufgabe gerade am Zug ist.
@@ -490,6 +771,30 @@ func set_tempo(index: int) -> void:
 	_fast.text = "» " + text
 
 
+## Unter den Fremden muss jemand sein, der eine fehlende Rolle übernehmen kann.
+func _ensure_needed_offer() -> void:
+	var r := game.ensure_needed_offer(game.needed_species(tasks, catalog))
+	for o in r.removed:
+		var c := creature_of(o)
+		if c != null:
+			_despawn(c)
+	for o in r.added:
+		_spawn_stranger(o)
+
+
+func _despawn(c: Creature) -> void:
+	var i := creatures.find(c)
+	if i < 0:
+		return
+	creatures.remove_at(i)
+	brains.remove_at(i)
+	strangers.erase(c)
+	members.erase(c)
+	if selected == c:
+		_select(null)
+	c.queue_free()
+
+
 # --- Anheuern -----------------------------------------------------------------
 
 func hire(offer: GroupMember) -> bool:
@@ -510,11 +815,9 @@ func hire(offer: GroupMember) -> bool:
 		_hire_panel.open(game)
 	if c != null and selected == c:
 		_select(c)
-	_banner.text = "%s gehört jetzt zur Gruppe." % offer.name
-	_banner.visible = true
-	get_tree().create_timer(3.0).timeout.connect(func():
-		if _player == null:
-			_banner.visible = false)
+	_show_note("%s gehört jetzt zur Gruppe." % offer.name)
+	Sound.play("coin")
+	Sound.vibrate(30)
 	return true
 
 
@@ -529,14 +832,45 @@ func _update_tags() -> void:
 		elif strangers.has(c):
 			c.set_tag("%s · %d %s" % [strangers[c].name, strangers[c].price, GameState.currency()], TAG_STRANGER)
 		elif members.has(c):
-			c.set_tag(members[c].name, TAG_MEMBER)
+			var m: GroupMember = members[c]
+			c.set_tag(m.name + (" · erschöpft" if m.exhausted else ""), TAG_TIRED if m.exhausted else TAG_MEMBER)
+
+
+## Beim Übergang über morning_hour (auch über Mitternacht) werden Erschöpfte wieder fit.
+func _check_morning() -> void:
+	var h := day_night.hour
+	if _last_hour >= 0.0:
+		var m := float(GameState.progression().get("morning_hour", 6.0)) if _morning_hour < 0.0 else _morning_hour
+		_morning_hour = m
+		# rückwärts um mehr als 12 h = über Mitternacht; kleine Rücksprünge (Aufgaben setzen die Uhrzeit) zählen nicht
+		var wrapped := _last_hour - h > 12.0
+		var crossed := (_last_hour < m and h >= m) or (wrapped and (h >= m or _last_hour < m))
+		if crossed:
+			for t in terrain.fruit_trees:
+				t.regrow()
+			if game.new_morning() > 0:
+				_update_tags()
+				_show_note("Ein neuer Morgen – alle sind ausgeruht.")
+	_last_hour = h
+
+
+## Kurze Einblendung oben (verschwindet nach ein paar Sekunden, nicht während Aufgaben).
+func _show_note(text: String, seconds := 3.0) -> void:
+	if _player != null:
+		return
+	_banner.text = text
+	_banner.visible = true
+	get_tree().create_timer(seconds, true, false, true).timeout.connect(func():
+		if _player == null and _banner.text == text:
+			_banner.visible = false)
 
 
 func _update_prompt(delta: float) -> void:
-	if not _prompt_enabled or tasks == null or tasks.tasks.is_empty() or _player != null:
+	if not _prompt_enabled or tasks == null or tasks.tasks.is_empty() or _player != null or not _picking.is_empty() \
+			or game.intro_step < GameState.INTRO_DONE:
 		_idle = 0.0
 		return
-	for panel in [_task_panel, _journal_panel, _result_panel, _hire_panel, _prompt]:
+	for panel in [_task_panel, _journal_panel, _result_panel, _hire_panel, _prompt, _intro, _question]:
 		if panel.visible:
 			_idle = 0.0
 			return
@@ -588,8 +922,9 @@ func _build_hud() -> void:
 	var bar := HBoxContainer.new()
 	root.add_child(bar)
 	_button(bar, "Journal", func(): _card.visible = false; _journal_panel.open(game))
-	_button(bar, "Aufgaben", func(): _card.visible = false; _task_panel.open(game, tasks))
+	_button(bar, "Aufgaben", func(): _card.visible = false; _task_panel.open(game, tasks, null, catalog))
 	_button(bar, "Anheuern", func(): _card.visible = false; _hire_panel.open(game))
+	_bait_button = _button(bar, "Köder", _toggle_bait_mode)
 	var more := _button(bar, "Optionen", Callable())
 	_credits = _outlined_label()
 	_credits.add_theme_font_size_override("font_size", 20)
@@ -604,7 +939,11 @@ func _build_hud() -> void:
 	root.add_child(opts)
 	more.pressed.connect(func(): opts.visible = not opts.visible)
 	_time_button = _button(opts, "Tempo ×1", _cycle_time)
-	_weather_button = _button(opts, "Wetter: auto", _cycle_weather)
+	_wait_button = _button(opts, "Warten …", wait_until_next)
+	var snd := _button(opts, "Ton: an" if Sound.is_enabled() else "Ton: aus", Callable())
+	snd.pressed.connect(func():
+		Sound.set_enabled(not Sound.is_enabled())
+		snd.text = "Ton: an" if Sound.is_enabled() else "Ton: aus")
 	var names := _button(opts, "Namen: an" if show_names else "Namen: aus", Callable())
 	names.pressed.connect(func():
 		show_names = not show_names
@@ -630,6 +969,7 @@ func _build_hud() -> void:
 		gfx.text = "Grafik: " + GraphicsSettings.LABELS[graphics_level])
 	_button(dbg_row, "+5 Test", func(): add_test_creatures(5))
 	_button(dbg_row, "Neues Spiel", debug_new_game)
+	_button(dbg_row, "Entwicklermenü", func(): get_tree().change_scene_to_file(DebugNav.MENU))
 	dbg.pressed.connect(func():
 		debug_mode = not debug_mode
 		dbg.text = "Debug: an" if debug_mode else "Debug"
@@ -641,8 +981,13 @@ func _build_hud() -> void:
 
 	# Einblendung der Aufgabenschritte (oben mittig, groß)
 	_banner = _outlined_label()
-	_banner.add_theme_font_size_override("font_size", 26)
-	_banner.add_theme_constant_override("outline_size", 8)
+	_banner.add_theme_font_size_override("font_size", 22)
+	_banner.add_theme_constant_override("outline_size", 6)
+	var bsb := StyleBoxFlat.new()
+	bsb.bg_color = Color(0.05, 0.07, 0.06, 0.72)
+	bsb.set_corner_radius_all(10)
+	bsb.set_content_margin_all(10)
+	_banner.add_theme_stylebox_override("normal", bsb)
 	_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_banner.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_banner.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
@@ -650,7 +995,7 @@ func _build_hud() -> void:
 	_banner.anchor_right = 0.85
 	_banner.offset_left = 0
 	_banner.offset_right = 0
-	_banner.offset_top = 140
+	_banner.offset_top = 150
 	_banner.visible = false
 	ui.add_child(_banner)
 	_fast = UiUtil.button("» Tempo ×1", _cycle_time, Vector2(170, 48))
@@ -669,6 +1014,17 @@ func _build_hud() -> void:
 	_focus.offset_bottom = -16
 	_focus.visible = false
 	ui.add_child(_focus)
+	_skip = UiUtil.button("Überspringen", func():
+		_skipping = true
+		_skip.visible = false
+		debug_speed(SKIP_SPEED), Vector2(170, 48))
+	_skip.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+	_skip.offset_left = -590
+	_skip.offset_top = -64
+	_skip.offset_right = -420
+	_skip.offset_bottom = -16
+	_skip.visible = false
+	ui.add_child(_skip)
 
 	_card = CreatureCard.new()
 	_card.visible = false
@@ -689,9 +1045,25 @@ func _build_hud() -> void:
 	ui.add_child(_journal_panel)
 	_task_panel = TaskPanel.new()
 	_task_panel.start_requested.connect(start_task)
+	_task_panel.pick_requested.connect(_begin_pick)
 	ui.add_child(_task_panel)
 	_result_panel = ResultPanel.new()
 	ui.add_child(_result_panel)
+	_question = SpeciesQuestionPanel.new()
+	ui.add_child(_question)
+	_result_panel.closed.connect(func():
+		var q := game.species_question()
+		if not q.is_empty():
+			_question.open(game, q.a, q.b))
+	_question.closed.connect(func(): save_game())
+	_pick_cancel = UiUtil.button("Abbrechen", func(): _end_pick(), Vector2(170, 48))
+	_pick_cancel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+	_pick_cancel.offset_left = -190
+	_pick_cancel.offset_top = -64
+	_pick_cancel.offset_right = -20
+	_pick_cancel.offset_bottom = -16
+	_pick_cancel.visible = false
+	ui.add_child(_pick_cancel)
 	_hire_panel = HirePanel.new()
 	_hire_panel.show_requested.connect(func(o):
 		var c := creature_of(o)
@@ -701,12 +1073,16 @@ func _build_hud() -> void:
 	_hire_panel.hire_requested.connect(hire)
 	ui.add_child(_hire_panel)
 	_prompt = TaskPrompt.new()
-	_prompt.accepted.connect(func(t): _card.visible = false; _task_panel.open(game, tasks, t))
+	_prompt.accepted.connect(func(t): _card.visible = false; _task_panel.open(game, tasks, t, catalog))
 	_prompt.later.connect(func(): _prompt_after = PROMPT_AGAIN)
 	_prompt.never.connect(func():
 		_prompt_enabled = false
 		UiSettings.set_value("task_prompt", false))
 	ui.add_child(_prompt)
+	_intro = IntroPanel.new()
+	_intro.started.connect(func(): game.intro_step = 1; _intro_show())
+	_intro.skipped.connect(func(): game.intro_step = GameState.INTRO_DONE; _banner.visible = false)
+	ui.add_child(_intro)
 
 
 func _button(parent: Control, text: String, action: Callable) -> Button:
@@ -726,13 +1102,17 @@ func _cycle_time() -> void:
 	set_tempo(_time_index + 1)
 
 
-func _cycle_weather() -> void:
-	_weather_index = (_weather_index + 1) % WEATHER_MODES.size()
-	var mode: String = WEATHER_MODES[_weather_index]
-	weather.auto_change = mode == "auto"
-	if mode != "auto":
-		weather.set_state(mode)
-	_weather_button.text = "Wetter: " + (WEATHER_LABELS.get(mode, "auto"))
+## Zeit bis zum nächsten Abend (tagsüber) bzw. Morgen (abends/nachts) vorspulen.
+## Manches zeigt sich erst in der Dunkelheit; am Morgen sind alle ausgeruht.
+func wait_until_next() -> void:
+	if _player != null:
+		return
+	var h := day_night.hour
+	var target := EVENING_HOUR if h >= MORNING_WAKE and h < EVENING_HOUR else MORNING_WAKE
+	var step := fposmod(target - h, 24.0)
+	var tw := create_tween()
+	tw.tween_method(func(t: float): day_night.hour = fposmod(h + step * t, 24.0), 0.0, 1.0, 1.5)
+	_show_note("Es wird Abend …" if target == EVENING_HOUR else "Die Nacht vergeht …", 1.8)
 
 
 # --- Debug --------------------------------------------------------------------
@@ -807,7 +1187,7 @@ func debug_open(panel_name: String) -> void:
 			var t := suggested_task()
 			_prompt.open(t, game.reward_for(t))
 		"tasks":
-			_task_panel.open(game, tasks)
+			_task_panel.open(game, tasks, null, catalog)
 
 
 ## Oberflächen-Skalierung erzwingen (Screenshots in Handy-Größe).
@@ -821,3 +1201,16 @@ func debug_ui_scale(factor: float) -> void:
 func debug_select_stranger(i: int) -> void:
 	debug_open("none")
 	_select(creature_of(game.offers[i]))
+
+
+## Einführung bei Schritt n zeigen (Screenshots).
+func debug_intro(step: int) -> void:
+	_intro.visible = false
+	game.intro_step = step
+	_intro_show()
+
+
+## Köder am Fruchtbaum i auslegen (Screenshots).
+func debug_bait_tree(i: int) -> void:
+	var t: FruitTree = terrain.fruit_trees[i]
+	place_bait(t.global_position + Vector3(0.5, 0, 0.5))

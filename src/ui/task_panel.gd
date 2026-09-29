@@ -1,13 +1,20 @@
 class_name TaskPanel
 extends Control
-## Aufgabenwahl: Aufgabe aussuchen, pro Rolle ein Gruppenmitglied zuweisen, starten.
-## Zeigt die mögliche Belohnung.
+## Aufgabenwahl: Aufgabe aussuchen, Rollen besetzen, starten.
+##
+## Rollen besetzt man nicht über Namenslisten, sondern in der Welt: Tippt man
+## auf einen Rollenplatz, schließt sich das Panel (pick_requested) und die Welt
+## wartet auf das Antippen einer Kreatur; danach öffnet sie das Panel wieder
+## (assign). Neben dem Namen steht die eigene Einschätzung der wichtigsten
+## Fähigkeit der Rolle. Gesperrte Aufgaben zeigen, was sie freischaltet.
 
 signal start_requested(task: TaskDef, assignments: Dictionary)
+signal pick_requested(task: TaskDef, role_id: String)
 signal closed
 
 var game: GameState
 var catalog: TaskCatalog
+var abilities: AbilityCatalog
 var _selected: TaskDef
 var _choice: Dictionary = {}  # role_id -> member_id
 
@@ -17,17 +24,42 @@ func _init() -> void:
 	visible = false
 
 
-## task: diese Aufgabe vorauswählen (null = zuletzt gewählte bzw. erste).
-func open(p_game: GameState, p_catalog: TaskCatalog, task: TaskDef = null) -> void:
+## task: diese Aufgabe vorauswählen (null = zuletzt gewählte bzw. erste offene).
+func open(p_game: GameState, p_catalog: TaskCatalog, task: TaskDef = null, p_abilities: AbilityCatalog = null) -> void:
 	game = p_game
 	catalog = p_catalog
+	if p_abilities != null:
+		abilities = p_abilities
 	if task != null and task != _selected:
 		_selected = task
 		_choice.clear()
-	if _selected == null and not catalog.tasks.is_empty():
-		_selected = catalog.tasks[0]
+	if _selected == null:
+		for t in catalog.tasks:
+			if game.task_unlocked(t):
+				_selected = t
+				break
+	# Besetzungen verwerfen, die nicht mehr gültig sind (erschöpft, nicht mehr da)
+	for role_id in _choice.keys():
+		var m := game.member(_choice[role_id])
+		if m == null or m.exhausted:
+			_choice.erase(role_id)
 	_build()
 	visible = true
+
+
+## Rolle besetzen (von der Welt nach dem Antippen aufgerufen).
+func assign(role_id: String, member: GroupMember, task: TaskDef = null) -> void:
+	if task != null and task != _selected:
+		_selected = task
+		_choice.clear()
+	for r in _choice.keys():
+		if _choice[r] == member.id:
+			_choice.erase(r)  # wer eine andere Rolle hatte, wechselt
+	_choice[role_id] = member.id
+
+
+func selected_task() -> TaskDef:
+	return _selected
 
 
 func _build() -> void:
@@ -41,10 +73,13 @@ func _build() -> void:
 	left.add_child(UiUtil.label("Aufgaben", 26))
 	for t in catalog.tasks:
 		var st: Dictionary = game.tasks.get(t.id, {})
+		var open_ := game.task_unlocked(t)
 		var mark := " ✓" if st.get("successes", 0) > 0 else ("  (%d×)" % st.attempts if st.get("attempts", 0) > 0 else "")
-		var b := UiUtil.button(t.name + mark, func(): _selected = t; _choice.clear(); _build(), Vector2(240, 52))
+		var b := UiUtil.button(t.name + mark if open_ else "– " + t.name, func(): _selected = t; _choice.clear(); _build(), Vector2(240, 52))
 		b.toggle_mode = true
 		b.button_pressed = t == _selected
+		if not open_:
+			b.add_theme_color_override("font_color", Color(1, 1, 1, 0.45))
 		left.add_child(b)
 	left.add_child(Control.new())
 	left.get_child(left.get_child_count() - 1).size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -57,42 +92,20 @@ func _build() -> void:
 		return
 	right.add_child(UiUtil.label(_selected.name, 24))
 	right.add_child(UiUtil.label(_selected.description, 16))
+	if not game.task_unlocked(_selected):
+		var before := catalog.get_task(_selected.unlock_after)
+		right.add_child(UiUtil.label("Wird frei, sobald „%s“ gelungen ist." % (before.name if before else _selected.unlock_after), 17, Color(1, 0.75, 0.5)))
+		return
 	var ctx := []
 	if _selected.context.has("hour"):
 		ctx.append("%02d:00 Uhr" % int(_selected.context.hour))
 	if _selected.context.has("weather"):
 		ctx.append({"clear": "klar", "cloudy": "bewölkt", "rain": "Regen"}.get(_selected.context.weather, ""))
 	right.add_child(UiUtil.label(" · ".join(ctx), 15, Color(1, 1, 1, 0.7)))
-	var reward := game.reward_for(_selected)
-	if reward > 0:
-		var again: bool = game.tasks.get(_selected.id, {}).get("successes", 0) > 0
-		right.add_child(UiUtil.label("Belohnung bei Erfolg: %d %s%s" % [reward, GameState.currency(), " (schon einmal gelöst)" if again else ""],
-				18, Color(0.95, 0.85, 0.4)))
-	right.add_child(UiUtil.label("Rollen", 20, Color(0.8, 0.95, 0.6)))
+	right.add_child(UiUtil.label(_economy_text(), 17, Color(0.95, 0.85, 0.4)))
+	right.add_child(UiUtil.label("Rollen – tippe auf einen Platz und dann auf eine Kreatur", 18, Color(0.8, 0.95, 0.6)))
 	for r in _selected.roles:
-		var row := HBoxContainer.new()
-		right.add_child(row)
-		var info := VBoxContainer.new()
-		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		info.add_child(UiUtil.caption(r.name, 0, 18))
-		info.add_child(UiUtil.label(r.description, 14, Color(1, 1, 1, 0.75)))
-		row.add_child(info)
-		var opt := OptionButton.new()
-		opt.custom_minimum_size = Vector2(190, 48)
-		opt.add_item("– wählen –")
-		for m in game.members:
-			opt.add_item(m.name)
-		var cur: String = _choice.get(r.id, "")
-		for i in game.members.size():
-			if game.members[i].id == cur:
-				opt.select(i + 1)
-		opt.item_selected.connect(func(i):
-			if i == 0:
-				_choice.erase(r.id)
-			else:
-				_choice[r.id] = game.members[i - 1].id
-			_build())
-		row.add_child(opt)
+		right.add_child(_role_row(r))
 	var problem := _problem()
 	var start := UiUtil.button("Aufgabe starten", _start, Vector2(260, 56))
 	start.disabled = problem != ""
@@ -101,6 +114,53 @@ func _build() -> void:
 	if problem != "":
 		right.add_child(UiUtil.label(problem, 14, Color(1, 0.7, 0.5)))
 	right.add_child(start)
+
+
+func _economy_text() -> String:
+	var cur := GameState.currency()
+	var reward := game.reward_for(_selected)
+	var st: Dictionary = game.tasks.get(_selected.id, {})
+	var note := ""
+	if st.get("successes", 0) > 0:
+		note = " (schon gelöst)"
+	elif st.get("attempts", 0) == 0:
+		note = " – doppelt, wenn es beim ersten Versuch klappt"
+	var cost := game.attempt_cost()
+	return "Belohnung: %d %s%s · Einsatz: %d %s" % [reward, cur, note, cost, cur]
+
+
+func _role_row(r: Dictionary) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	var info := VBoxContainer.new()
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	info.add_child(UiUtil.caption(r.name, 0, 18))
+	info.add_child(UiUtil.label(r.description, 14, Color(1, 1, 1, 0.75)))
+	row.add_child(info)
+	var m := game.member(_choice.get(r.id, ""))
+	var text := "antippen …"
+	if m != null:
+		text = m.name
+		var ability := main_ability(r)
+		var rating := game.journal.rating(m.id, ability)
+		if rating >= 0 and abilities != null:
+			text += "\n%s: %s" % [abilities.name_of(ability), Journal.RATING_LABELS[rating]]
+	var b := UiUtil.button(text, func(): visible = false; pick_requested.emit(_selected, r.id), Vector2(210, 56))
+	if m == null:
+		b.add_theme_color_override("font_color", Color(1, 0.92, 0.45))
+	row.add_child(b)
+	return row
+
+
+## Fähigkeit mit dem größten Gewicht einer Rolle.
+static func main_ability(r: Dictionary) -> String:
+	var best := ""
+	var w := -1.0
+	for req in r.requirements:
+		if req.weight > w:
+			w = req.weight
+			best = req.ability
+	return best
 
 
 func _problem() -> String:

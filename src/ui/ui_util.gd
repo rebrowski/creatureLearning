@@ -10,6 +10,7 @@ static func button(text: String, action: Callable = Callable(), min_size := Vect
 	var b := Button.new()
 	b.text = text
 	b.custom_minimum_size = min_size
+	b.pressed.connect(func(): Sound.play("click"))
 	if action.is_valid():
 		b.pressed.connect(action)
 	return b

@@ -12,8 +12,8 @@ config_version=5
 
 config/name="Creature Learning"
 config/description="Beobachte prozedurale Kreaturen, erschließe Arten und Fähigkeiten, weise Rollen zu."
-config/version="0.7.3"
-run/main_scene="res://scenes/main.tscn"
+config/version="0.8.0"
+run/main_scene="res://scenes/world/forest.tscn"
 config/quit_on_go_back=false
 config/features=PackedStringArray("4.4", "Mobile")
 config/icon="res://icon.svg"
@@ -21,6 +21,7 @@ config/icon="res://icon.svg"
 [autoload]
 
 DebugNav="*res://src/debug/debug_nav.gd"
+Sfx="*res://src/game/sfx.gd"
 
 [display]
 

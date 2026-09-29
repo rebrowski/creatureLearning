@@ -72,7 +72,10 @@ func update(delta: float) -> bool:
 				_moving = false
 				if outcome == "success":
 					_state = TOP
-					_wait = 3.0
+					_wait = float(params.get("top_wait", 3.0))
+					var bait = params.get("bait")
+					if bait != null and is_instance_valid(bait):
+						bait.take(creature)
 					creature.locomotion.head_pitch = 0.3
 				else:
 					_state = DROP
@@ -105,13 +108,14 @@ func _attach() -> void:
 	_h0 = creature.plan.body_length * 0.5 + creature.plan.head_radius
 	_target_h = maxf(_tree.fruit_height - creature.plan.body_length * 0.3, _h0 + 0.5) if outcome == "success" \
 			else clampf(_h0 + 0.3 + a * 2.0, _h0 + 0.3, _tree.fruit_height * 0.5)
-	_speed = 0.25 + 1.1 * a
+	_speed = (0.25 + 1.1 * a) * speed_factor()
 	_h = _h0
 	_blend = 0.0
 	creature.scripted = true
 	creature.velocity = Vector3.ZERO
 	_ground_xform = creature.global_transform
 	creature.locomotion.foot_override = _feet
+	Sound.play("climb", creature.global_position)
 	_state = ATTACH
 
 

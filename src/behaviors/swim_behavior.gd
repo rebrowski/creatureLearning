@@ -117,12 +117,15 @@ func _enter() -> void:
 	_speed = plan.move_speed * (0.7 if _wade else 0.35 + 0.55 * _skill)
 	if _mode == "hesitate":
 		_speed = plan.move_speed * 0.4
+	_speed *= speed_factor()
 	label = "watet durch den Bach" if _wade else ("zögert am Ufer" if _mode == "hesitate" else ("strampelt im Wasser" if _mode == "struggle" else "schwimmt"))
 	creature.behavior_label = label
 	_t = 0.0
 	_drift = 0.0
 	_flow = l.stream_direction(mid.x, mid.z)
 	creature.scripted = true
+	if _mode != "hesitate":
+		Sound.play("splash", _a.lerp(_b, 0.3))
 	if not _wade and _mode != "hesitate":
 		creature.locomotion.foot_override = _paddle
 		creature.locomotion.pose_pitch = 0.1 + (1.0 - _skill) * 0.25  # schwache Schwimmer: Kopf hoch, Hinterteil tief
@@ -160,6 +163,9 @@ func _place(delta: float, direction: float, turn := true) -> void:
 		var bob := sin(elapsed * (5.0 + weak * 4.0)) * (0.03 + 0.07 * weak if _mode == "struggle" else 0.04 * weak)
 		y = maxf(ground, l.water_level_at(p.x, p.z) - submerge + bob)
 	p.y = y
+	var bait = params.get("bait")
+	if bait != null and is_instance_valid(bait) and Vector2(p.x - bait.global_position.x, p.z - bait.global_position.z).length() < 0.6:
+		bait.take(creature)
 	var dir := (_b - _a).normalized() * direction
 	creature.velocity = dir * _speed
 	creature.global_position = p
@@ -178,6 +184,7 @@ func _lose_item() -> void:
 	if item == null or not is_instance_valid(item):
 		return
 	creature.held_item = null
+	Sound.play("splash", item.global_position)
 	BehaviorEffects.float_away(item, brain.layout(), _flow, 4.0)
 
 

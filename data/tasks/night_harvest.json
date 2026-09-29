@@ -1,0 +1,66 @@
+{
+  "format": "creature_task/1",
+  "id": "night_harvest",
+  "name": "Nachternte",
+  "description": "Nachts sind die Früchte am süßesten. Einer findet im Dunkeln den Weg zum Baum, ein anderer klettert hinauf.",
+  "order": 8,
+  "reward": 45,
+  "unlock_after": "guard_camp",
+  "context": {
+    "hour": 23.0,
+    "weather": "clear"
+  },
+  "places": {
+    "tree": "fruit_tree:2"
+  },
+  "roles": [
+    {
+      "id": "scout",
+      "name": "Späher",
+      "description": "Findet im Dunkeln den Weg zum Baum.",
+      "requirements": [
+        {
+          "ability": "night_vision",
+          "weight": 1.0,
+          "dark": true
+        }
+      ],
+      "threshold": 0.6,
+      "hint_fail": "Im Dunkeln fand niemand den Baum.",
+      "hint_close": "Der Baum war im Dunkeln knapp zu finden."
+    },
+    {
+      "id": "climber",
+      "name": "Kletterer",
+      "description": "Klettert den Stamm hinauf und holt die Frucht.",
+      "requirements": [
+        {
+          "ability": "climb",
+          "weight": 1.0,
+          "zone": "tree"
+        }
+      ],
+      "threshold": 0.5,
+      "hint_fail": "Die Frucht hing am Ende immer noch am Ast – hinauf kam niemand weit genug.",
+      "hint_fail_far": "Schon nach wenigen Handbreit ging es nicht mehr weiter den Stamm hinauf.",
+      "hint_close": "Beim Klettern war es knapp.",
+      "requires": [
+        "scout"
+      ],
+      "hint_skipped": "Ohne Weg zum Baum gab es nichts zu klettern."
+    }
+  ],
+  "steps": [
+    {
+      "type": "walk_to",
+      "role": "scout",
+      "place": "tree"
+    },
+    {
+      "type": "climb_tree",
+      "role": "climber",
+      "place": "tree",
+      "on_success": "drop_fruit"
+    }
+  ]
+}

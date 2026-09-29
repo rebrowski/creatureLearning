@@ -24,6 +24,13 @@ var recruit_count := 0
 var credits := 0
 ## Fremde am Waldrand, die man anheuern kann (Name "Fremdling N", Preis in GroupMember.price).
 var offers: Array[GroupMember] = []
+## Bestimmungsbuch: Art-ID -> true, sobald eine Artfrage zu ihr richtig beantwortet wurde
+var identified: Dictionary = {}
+## schon gestellte Artfragen: "id_a|id_b" -> true
+var asked_pairs: Dictionary = {}
+## Einführung: 0 = noch nicht begonnen … INTRO_DONE = fertig/übersprungen.
+var intro_step := 0
+const INTRO_DONE := 99
 var errors: PackedStringArray = []
 
 
@@ -84,7 +91,8 @@ func to_dict() -> Dictionary:
 		offer_list.append(m.to_dict())
 	return {"format": FORMAT, "taxonomy": taxonomy.to_dict(), "members": list, "journal": journal.to_dict(),
 			"tasks": tasks, "hour": hour, "weather": weather, "recruit_count": recruit_count,
-			"credits": credits, "offers": offer_list}
+			"credits": credits, "offers": offer_list, "intro_step": intro_step,
+			"identified": identified.keys(), "asked_pairs": asked_pairs.keys()}
 
 
 func _from_dict(d: Variant) -> void:
@@ -109,6 +117,11 @@ func _from_dict(d: Variant) -> void:
 	recruit_count = int(d.get("recruit_count", 0))
 	# ältere Spielstände (vor dem Anheuern): Startguthaben und neue Fremde
 	credits = int(d.get("credits", progression().get("start_credits", 40)))
+	intro_step = int(d.get("intro_step", INTRO_DONE))  # ältere Spielstände: keine Einführung
+	for sp in d.get("identified", []):
+		identified[str(sp)] = true
+	for k in d.get("asked_pairs", []):
+		asked_pairs[str(k)] = true
 	for od in d.get("offers", []):
 		offers.append(GroupMember.from_dict(schema, od))
 	if not d.has("offers"):
@@ -140,27 +153,63 @@ func total_successes() -> int:
 	return n
 
 
-## Belohnung, die ein Erfolg bei dieser Aufgabe jetzt brächte.
+## Frei, wenn die vorausgesetzte Aufgabe (unlock_after) schon einmal gelungen ist.
+func task_unlocked(task: TaskDef) -> bool:
+	return task.unlock_after == "" or tasks.get(task.unlock_after, {}).get("successes", 0) > 0 \
+			or tasks.get(task.id, {}).get("attempts", 0) > 0  # ältere Spielstände: schon Versuchtes bleibt offen
+
+
+## Belohnung, die ein Erfolg bei dieser Aufgabe jetzt brächte: vor dem ersten
+## Erfolg abhängig von der Zahl der Versuche (1. Versuch doppelt), danach
+## × repeat_reward_factor.
 func reward_for(task: TaskDef, cfg: Dictionary = {}) -> int:
 	if cfg.is_empty():
 		cfg = progression()
-	if tasks.get(task.id, {}).get("successes", 0) > 0:
+	var st: Dictionary = tasks.get(task.id, {})
+	if st.get("successes", 0) > 0:
 		return int(roundf(task.reward * float(cfg.get("repeat_reward_factor", 0.5))))
-	return task.reward
+	var factors: Array = cfg.get("first_try_factors", [1.0])
+	var f := float(factors[mini(int(st.get("attempts", 0)), factors.size() - 1)])
+	return int(roundf(task.reward * f))
 
 
-## Aufgabenergebnis eintragen. Bei Erfolg gibt es Guthaben; danach kommen neue
-## Fremde an den Waldrand. Rückgabe: {"earned": int, "new_offers": Array[GroupMember]}.
-func record_task(task: TaskDef, success: bool) -> Dictionary:
+## Einsatz für den nächsten Versuch (nie mehr als das Guthaben – keine Sackgasse).
+func attempt_cost(cfg: Dictionary = {}) -> int:
+	if cfg.is_empty():
+		cfg = progression()
+	return mini(int(cfg.get("attempt_cost", 0)), credits)
+
+
+## Aufgabenergebnis eintragen. Der Einsatz wird abgezogen, bei Erfolg gibt es
+## die Belohnung. Wer gescheitert ist (failed), ist bis zum Morgen erschöpft.
+## Danach kommen neue Fremde an den Waldrand.
+## Rückgabe: {"earned": int, "cost": int, "new_offers": Array[GroupMember], "exhausted": Array[GroupMember]}.
+func record_task(task: TaskDef, success: bool, failed: Array = []) -> Dictionary:
 	var cfg := progression()
+	var cost := attempt_cost(cfg)
 	var earned := reward_for(task, cfg) if success else 0
 	if not tasks.has(task.id):
 		tasks[task.id] = {"attempts": 0, "successes": 0}
 	tasks[task.id].attempts += 1
 	if success:
 		tasks[task.id].successes += 1
-	credits += earned
-	return {"earned": earned, "new_offers": refill_offers(cfg)}
+	credits += earned - cost
+	var tired: Array[GroupMember] = []
+	for m in failed:
+		if m is GroupMember and members.has(m):
+			m.exhausted = true
+			tired.append(m)
+	return {"earned": earned, "cost": cost, "new_offers": refill_offers(cfg), "exhausted": tired}
+
+
+## Neuer Morgen: alle Erschöpften sind wieder fit. Rückgabe: wie viele.
+func new_morning() -> int:
+	var n := 0
+	for m in members:
+		if m.exhausted:
+			m.exhausted = false
+			n += 1
+	return n
 
 
 ## Füllt die Fremden am Waldrand auf "offers" auf (solange die Gruppe nicht voll ist).
@@ -175,6 +224,104 @@ func refill_offers(cfg: Dictionary = {}) -> Array[GroupMember]:
 		offers.append(m)
 		added.append(m)
 	return added
+
+
+# --- Artfragen und Bestimmungsbuch -------------------------------------------
+
+static func _pair_key(a: GroupMember, b: GroupMember) -> String:
+	return "%s|%s" % [a.id, b.id] if a.id < b.id else "%s|%s" % [b.id, a.id]
+
+
+## Nächste Artfrage: das ähnlichste noch nicht gefragte Paar von Gruppenmitgliedern
+## (Doppelgänger zuerst). {"a": GroupMember, "b": GroupMember} oder {}.
+func species_question() -> Dictionary:
+	var best := {}
+	var best_d := INF
+	for i in members.size():
+		for j in range(i + 1, members.size()):
+			var a := members[i]
+			var b := members[j]
+			if asked_pairs.has(_pair_key(a, b)):
+				continue
+			# schon beide Arten bestimmt und gleich/verschieden bekannt? dann uninteressant
+			if identified.has(a.species_id) and identified.has(b.species_id):
+				continue
+			var d := GenomeDistance.distance(a.genome, b.genome)
+			if d < best_d:
+				best_d = d
+				best = {"a": a, "b": b}
+	return best
+
+
+## Antwort auf eine Artfrage. Rückgabe: {"correct", "same", "reward", "discovered": [Anzeigenamen]}.
+func answer_species_question(a: GroupMember, b: GroupMember, said_same: bool) -> Dictionary:
+	asked_pairs[_pair_key(a, b)] = true
+	var same := a.species_id == b.species_id
+	var res := {"correct": said_same == same, "same": same, "reward": 0, "discovered": []}
+	if res.correct:
+		res.reward = int(progression().get("species_reward", 10))
+		credits += res.reward
+		for sp in [a.species_id, b.species_id]:
+			if not identified.has(sp):
+				identified[sp] = true
+				res.discovered.append(taxonomy.get_taxon(sp).display_name())
+	return res
+
+
+## Arten, von denen die Gruppe Mitglieder hat: [[Taxon, [GroupMember], bestimmt?]]
+func field_guide() -> Array:
+	var by_species := {}
+	for m in members:
+		if not by_species.has(m.species_id):
+			by_species[m.species_id] = []
+		by_species[m.species_id].append(m)
+	var out := []
+	for sp in by_species:
+		out.append([taxonomy.get_taxon(sp), by_species[sp], identified.has(sp)])
+	return out
+
+
+## Arten, die für eine freigeschaltete, noch ungelöste Aufgabe gebraucht
+## werden: Rollen, die kein Gruppenmitglied schafft (Durchschnittstier der Art).
+func needed_species(task_catalog: TaskCatalog, ability_catalog: AbilityCatalog) -> Array[String]:
+	var out: Array[String] = []
+	for t in task_catalog.tasks:
+		if not task_unlocked(t) or tasks.get(t.id, {}).get("successes", 0) > 0:
+			continue
+		for r in t.roles:
+			var covered := false
+			for m in members + offers:
+				if TaskSimulator.simulate(t, {r.id: m}, ability_catalog, 0).roles[r.id].score >= r.threshold:
+					covered = true
+					break
+			if covered:
+				continue
+			for sp in taxonomy.species():
+				var probe := GroupMember.from_individual(factory.create_individual(sp.id, 0, "", "adult"), "")
+				if TaskSimulator.simulate(t, {r.id: probe}, ability_catalog, 0).roles[r.id].score >= r.threshold and not out.has(sp.id):
+					out.append(sp.id)
+	return out
+
+
+## Sorgt dafür, dass unter den Fremden jemand ist, der eine fehlende Rolle
+## übernehmen kann (sonst gäbe es eine Sackgasse). Rückgabe:
+## {"added": [GroupMember], "removed": [GroupMember]} (für die Welt).
+func ensure_needed_offer(needed: Array[String]) -> Dictionary:
+	var result := {"added": [], "removed": []}
+	if needed.is_empty():
+		return result
+	for o in offers:
+		if needed.has(o.species_id):
+			return result
+	var cfg := progression()
+	var rng := RngUtil.make_rng(["needed", taxonomy.base_seed, recruit_count])
+	var sp: String = needed[rng.randi() % needed.size()]
+	var m := recruit(cfg, sp)
+	if offers.size() >= int(cfg.get("offers", 3)) and not offers.is_empty():
+		result.removed.append(offers.pop_front())
+	offers.append(m)
+	result.added.append(m)
+	return result
 
 
 ## Warum man diesen Fremden gerade nicht anheuern kann ("" = geht).
@@ -212,7 +359,7 @@ static func progression() -> Dictionary:
 ## Wählt einen neuen Fremden (vorläufiger Name "Fremdling N", mit Preis): meist eine Art, die
 ## einem Mitglied ähnlich sieht (Doppelgänger, Nachahmer), sonst zufällig; oft
 ## vertretene Arten seltener.
-func recruit(cfg: Dictionary = {}) -> GroupMember:
+func recruit(cfg: Dictionary = {}, species_id := "") -> GroupMember:
 	if cfg.is_empty():
 		cfg = progression()
 	var rng := RngUtil.make_rng(["recruit", taxonomy.base_seed, recruit_count])
@@ -223,7 +370,9 @@ func recruit(cfg: Dictionary = {}) -> GroupMember:
 	if candidates.is_empty():
 		return null
 	var chosen: Taxon
-	if rng.randf() < float(cfg.get("lookalike_chance", 0.7)):
+	if species_id != "" and taxonomy.has_taxon(species_id):
+		chosen = taxonomy.get_taxon(species_id)
+	elif rng.randf() < float(cfg.get("lookalike_chance", 0.7)):
 		var best_score := INF
 		for sp in candidates:
 			var d := INF

@@ -104,14 +104,24 @@ func test_offers_prefer_lookalikes_and_are_reproducible() -> void:
 func test_rewards_and_hiring() -> void:
 	var gs := GameState.new_game()
 	var start := gs.credits
-	var r := gs.record_task(_task(), false)
+	assert_eq(gs.reward_for(_task()), 60, "erster Versuch zählt doppelt")
+	assert_eq(gs.attempt_cost(), 10)
+	var r := gs.record_task(_task(), false, [gs.members[0]])
 	assert_eq(r.earned, 0, "Misserfolg bringt nichts")
+	assert_eq(r.cost, 10, "Einsatz")
 	assert_eq(r.new_offers.size(), 0, "Fremde schon vollzählig")
+	assert_true(gs.members[0].exhausted, "wer scheitert, ist erschöpft")
+	assert_eq(r.exhausted.size(), 1)
+	assert_eq(gs.new_morning(), 1)
+	assert_false(gs.members[0].exhausted, "am Morgen wieder fit")
+	assert_eq(gs.reward_for(_task()), 30, "zweiter Versuch: einfach")
 	r = gs.record_task(_task(), true)
 	assert_eq(r.earned, 30)
 	assert_eq(gs.reward_for(_task()), 15, "Wiederholung: halbe Belohnung")
 	assert_eq(gs.record_task(_task(), true).earned, 15)
-	assert_eq(gs.credits, start + 45)
+	assert_eq(gs.credits, start + 45 - 30)
+	gs.credits = 4
+	assert_eq(gs.attempt_cost(), 4, "Einsatz nie höher als das Guthaben")
 	var offer := gs.offers[0]
 	gs.credits = offer.price - 1
 	assert_ne(gs.hire_problem(offer), "")
@@ -155,3 +165,69 @@ func test_journal_rules() -> void:
 	assert_eq(j.entries.size(), Journal.LOG_SIZE)
 	assert_eq(j.entries_for("x", 3).size(), 3)
 	assert_eq(j.entries_for("x", 1)[0].text, str(Journal.LOG_SIZE + 9), "neueste zuerst")
+
+
+func test_task_unlocks() -> void:
+	var gs := GameState.new_game()
+	var t := _task()
+	var later := TaskDef.new()
+	later.id = "later"
+	later.unlock_after = t.id
+	assert_true(gs.task_unlocked(t))
+	assert_false(gs.task_unlocked(later))
+	gs.record_task(t, true)
+	assert_true(gs.task_unlocked(later))
+
+
+func test_species_questions_and_field_guide() -> void:
+	var gs := GameState.new_game()
+	var q := gs.species_question()
+	assert_false(q.is_empty())
+	var same: bool = q.a.species_id == q.b.species_id
+	var credits := gs.credits
+	var r := gs.answer_species_question(q.a, q.b, same)
+	assert_true(r.correct)
+	assert_eq(gs.credits, credits + int(GameState.progression().species_reward))
+	assert_gt(r.discovered.size(), 0, "Art kommt ins Bestimmungsbuch")
+	assert_true(gs.identified.has(q.a.species_id))
+	var q2 := gs.species_question()
+	assert_false(q2.is_empty() or (q2.a == q.a and q2.b == q.b), "nicht dieselbe Frage zweimal")
+	var wrong := gs.answer_species_question(q2.a, q2.b, q2.a.species_id != q2.b.species_id)
+	assert_false(wrong.correct)
+	assert_eq(wrong.reward, 0)
+	var known := 0
+	for e in gs.field_guide():
+		if e[2]:
+			known += 1
+	assert_gt(known, 0)
+	var loaded := GameState.new()
+	loaded._from_dict(gs.to_dict())
+	assert_eq(loaded.identified.size(), gs.identified.size(), "gespeichert")
+	assert_eq(loaded.asked_pairs.size(), gs.asked_pairs.size())
+
+
+func test_intro_only_for_new_games_and_exhaustion_saved() -> void:
+	var gs := GameState.new_game()
+	assert_eq(gs.intro_step, 0, "neues Spiel beginnt mit Einführung")
+	gs.members[0].exhausted = true
+	var d := gs.to_dict()
+	var loaded := GameState.new()
+	loaded._from_dict(d)
+	assert_true(loaded.members[0].exhausted)
+	d.erase("intro_step")
+	var old := GameState.new()
+	old._from_dict(d)
+	assert_eq(old.intro_step, GameState.INTRO_DONE, "ältere Spielstände ohne Einführung")
+
+
+func test_needed_species_offer_avoids_dead_ends() -> void:
+	var gs := GameState.new_game()
+	var cat := AbilityCatalog.load_file(gs.schema)
+	var tc := TaskCatalog.load_dir(cat)
+	for t in tc.tasks:
+		if t.id in ["fruit_from_tree", "fruit_over_stream"]:
+			gs.record_task(t, true)
+	var needed := gs.needed_species(tc, cat)
+	assert_gt(needed.size(), 0, "Trüffelsuche braucht einen Gräber, den die Startgruppe nicht hat")
+	gs.ensure_needed_offer(needed)
+	assert_true(gs.offers.any(func(o): return needed.has(o.species_id)), "ein passender Fremder wartet")

@@ -1,0 +1,68 @@
+{
+  "format": "creature_task/1",
+  "id": "truffle_hunt",
+  "name": "Trüffelsuche",
+  "description": "Unter der Lichtung wachsen duftende Knollen. Eine feine Nase muss sie finden, jemand mit kräftigen Pfoten sie ausgraben.",
+  "order": 3,
+  "reward": 30,
+  "unlock_after": "fruit_over_stream",
+  "context": {
+    "hour": 14.0,
+    "weather": "cloudy"
+  },
+  "places": {
+    "clearing": "spawn"
+  },
+  "roles": [
+    {
+      "id": "sniffer",
+      "name": "Spürnase",
+      "description": "Wittert, wo die Knollen liegen.",
+      "requirements": [
+        {
+          "ability": "scent",
+          "weight": 1.0
+        }
+      ],
+      "threshold": 0.6,
+      "hint_fail": "Gegraben wurde an der falschen Stelle – die Knollen blieben unentdeckt.",
+      "hint_close": "Die Spur war schwach, aber sie reichte."
+    },
+    {
+      "id": "digger",
+      "name": "Gräber",
+      "description": "Gräbt die Knollen aus.",
+      "requirements": [
+        {
+          "ability": "dig",
+          "weight": 1.0
+        }
+      ],
+      "threshold": 0.5,
+      "requires": [
+        "sniffer"
+      ],
+      "hint_fail": "Der Boden war zu hart – mehr als ein Kratzen wurde es nicht.",
+      "hint_fail_far": "Gegraben hat niemand – die Pfoten waren dafür nicht gemacht.",
+      "hint_close": "Mit Mühe kamen die Knollen zum Vorschein.",
+      "hint_skipped": "Ohne gefundene Stelle gab es nichts zu graben."
+    }
+  ],
+  "steps": [
+    {
+      "type": "behavior",
+      "role": "sniffer",
+      "behavior": "sniff"
+    },
+    {
+      "type": "walk_to",
+      "role": "digger",
+      "place": "clearing"
+    },
+    {
+      "type": "behavior",
+      "role": "digger",
+      "behavior": "dig"
+    }
+  ]
+}

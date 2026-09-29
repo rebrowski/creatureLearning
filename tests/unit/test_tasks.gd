@@ -26,9 +26,12 @@ func _by_score(task: TaskDef, role_id: String, best: bool) -> GroupMember:
 func test_catalog() -> void:
 	assert_eq(tasks.errors, PackedStringArray())
 	assert_gte(tasks.tasks.size(), 2)
-	assert_eq(tasks.tasks[0].id, "fruit_over_stream", "sortiert nach order")
+	assert_eq(tasks.tasks[0].id, "fruit_from_tree", "sortiert nach order")
+	assert_gte(tasks.tasks.size(), 8, "Aufgabenkette")
 	for t in tasks.tasks:
-		assert_between(t.roles.size(), 2, 4)
+		assert_between(t.roles.size(), 1, 4)
+		if t.unlock_after != "":
+			assert_not_null(tasks.get_task(t.unlock_after), "%s: Voraussetzung existiert" % t.id)
 
 
 func test_invalid_task() -> void:
@@ -90,3 +93,28 @@ func test_night_task_needs_night_vision() -> void:
 	var nv_best := catalog.base_value("night_vision", best.genome)
 	var nv_worst := catalog.base_value("night_vision", worst.genome)
 	assert_gt(nv_best, nv_worst)
+
+
+func test_every_task_is_solvable_by_some_species() -> void:
+	for t in tasks.tasks:
+		for r in t.roles:
+			var ok := false
+			for sp in gs.taxonomy.species():
+				var m := GroupMember.from_individual(gs.factory.create_individual(sp.id, 0, "", "adult"), "")
+				if TaskSimulator.simulate(t, {r.id: m}, catalog, 0).roles[r.id].score >= r.threshold:
+					ok = true
+					break
+			assert_true(ok, "%s/%s: mindestens eine Art schafft die Rolle" % [t.id, r.id])
+
+
+func test_result_checks_ratings() -> void:
+	var t := tasks.get_task("fruit_from_tree")
+	var m: GroupMember = gs.members[0]
+	var j := Journal.new()
+	j.set_rating(m.id, "climb", 2)
+	var fail := {"success": false, "roles": {"climber": {"success": false, "skipped": false}}, "hints": []}
+	var lines := ResultPanel.rating_checks(t, fail, {"climber": m}, j, catalog)
+	assert_eq(lines.size(), 1)
+	assert_true(lines[0][0].contains("passt nicht"))
+	var ok := {"success": true, "roles": {"climber": {"success": true, "skipped": false}}, "hints": []}
+	assert_true(ResultPanel.rating_checks(t, ok, {"climber": m}, j, catalog)[0][0].contains("passt zu"))

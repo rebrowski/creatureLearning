@@ -3,6 +3,7 @@ extends RefCounted
 ## Bedienungs-Einstellungen (user://settings.cfg, Abschnitt "ui"):
 ##   scale        "auto" oder Faktor (1.0 … 2.0) für Schrift und Knöpfe
 ##   show_names   Namensschilder über den Kreaturen (Standard: an)
+##   sound        Geräusche und Vibration (Standard: an)
 ##   task_prompt  Hinweis „Aufgabe starten?“ nach einer Weile ohne Eingabe (Standard: an)
 ##
 ## "auto" richtet sich nach der Bildschirmgröße: Die Oberfläche ist für
@@ -37,6 +38,10 @@ static func set_value(key: String, value: Variant) -> void:
 
 static func show_names() -> bool:
 	return bool(get_value("show_names", true))
+
+
+static func sound_on() -> bool:
+	return bool(get_value("sound", true))
 
 
 static func task_prompt() -> bool:

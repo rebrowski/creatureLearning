@@ -102,3 +102,18 @@ bringen Guthaben. Startgruppe: 3 Arten à 2 Tiere, davon zwei Doppelgänger-Arte
 - „Tempo“ statt „Zeit“: 1× / 1.5× / 2× / 3× / 4× / Pause beschleunigt alles
   (Kreaturen, Aufgaben, Tageszeit) über `Engine.time_scale`; derselbe Knopf
   erscheint während Aufgaben unten rechts. Beim Verlassen der Waldwelt zurück auf 1×.
+
+## M8 – Überarbeitung nach der Spielkritik (0.8.0)
+
+Ziel: Beobachten und Schließen muss sich mehr lohnen als Durchprobieren.
+- Einsatz pro Versuch (10 Beeren), Belohnung beim ersten Versuch ×2, Erschöpfung bis zum Morgen.
+- Köder-Experimente an Baum, Bach und Boden (nachts: Nachtsicht).
+- Direkter Einstieg in die Welt mit kurzer Einführung (Begrüßung → Köder am Baum →
+  Einschätzung → erste Aufgabe); Entwicklermenü nur noch über Debug.
+- Rollen besetzen durch Antippen der Kreatur in der Welt; eigene Einschätzung am Rollenplatz.
+- Aufgabenwiedergabe zügiger (Aufgaben-Tempo ×1.6, Beteiligte warten am richtigen Ort,
+  „Überspringen“ bei Wiederholungen): Frucht über den Bach ≈ 26–30 s statt ≈ 50–60 s.
+- Aufgabenkette mit 9 Aufgaben und Freischaltung; passende Fremde gegen Sackgassen.
+- Auswertung prüft die eigene Einschätzung; Artfragen und Bestimmungsbuch.
+- Journal verschlankt (vermutete Art + Einschätzung).
+- Geräusche und Vibration (Optionen → Ton); „Warten …“ statt Wetter-Knopf.

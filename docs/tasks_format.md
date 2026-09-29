@@ -9,7 +9,8 @@ vorhandenen Schritttypen auskommen. Beispiel: [`fruit_over_stream.json`](../data
 |---|---|
 | `id`, `name`, `description` | Kennung und Anzeige |
 | `order` | Reihenfolge in der Aufgabenliste (der Hinweis „Aufgabe starten?“ schlägt die erste ungelöste vor) |
-| `reward` | Belohnung in Beeren beim ersten Erfolg (Wiederholung: × `repeat_reward_factor`) |
+| `reward` | Grundbelohnung in Beeren; vor dem ersten Erfolg × `first_try_factors[bisherige Versuche]` (1. Versuch ×2), danach × `repeat_reward_factor` |
+| `unlock_after` | ID einer Aufgabe, die vorher gelungen sein muss (fehlt = von Anfang an frei). So entsteht die Aufgabenkette |
 | `context` | `{"hour": 23.0, "weather": "clear"}` – wird beim Start gesetzt und für die Bewertung verwendet |
 | `places` | Ortsnamen → Ortsangabe (siehe unten) |
 | `roles` | 2–4 Rollen (siehe unten) |
@@ -65,8 +66,9 @@ Vor dem ersten Schritt versammeln sich die Beteiligten in der Nähe des ersten O
 
 ## Journal
 
-Tippe eine Kreatur an (mit ‹ › blätterst du durch alle Kreaturen): Karte mit **Markierung** (6 Farben), **eigener Gruppe** („gleiche Art?“),
-**Einschätzung** jeder Fähigkeit (– / o / +), **Notiz** und den letzten Beobachtungen. Das Journal
+Tippe eine Kreatur an (mit ‹ › blätterst du durch alle Kreaturen): Karte mit **vermuteter Art**
+und **Einschätzung** jeder Fähigkeit (– / o / +, farbig mit Text) und den letzten Beobachtungen.
+(Markierung und Notiz sind seit 0.8 gestrichen; alte Daten bleiben im Spielstand.) Das Journal
 (Knopf oben) listet Kreaturen, Gruppen und das **Protokoll**: Verhaltensweisen, die im Blickfeld
 (≤ 28 m von der Kamera) stattfanden, z. B. „Tamo kletterte auf einen Felsen – hat geklappt“ –
 auch bei Fremden („Fremdling 3 …“; die Einträge bleiben nach dem Anheuern erhalten).
@@ -82,6 +84,45 @@ Im Spiel sieht man Namen, nie Artnamen (nur im Debug-Modus).
 oder Verlassen der App, nach jeder Aufgabe, nach Journal-Änderungen (gebündelt) und alle 60 s.
 „Neues Spiel“ im Debug-Modus löscht den Stand.
 
+## Aufgabenkette
+
+| # | Aufgabe | Rollen (Hauptfähigkeit) | frei nach |
+|---|---|---|---|
+| 1 | Frucht vom Baum | Kletterer (Klettern) | – |
+| 2 | Frucht über den Bach | Kletterer, Träger (Schwimmen/Waten) | 1 |
+| 3 | Trüffelsuche | Spürnase (Wittern), Gräber (Graben) | 2 |
+| 4 | Nachts zum großen Felsen | Späher (Nachtsicht), Rufer (Lärm) | 3 |
+| 5 | Schwerer Stein | Schlepper (Tragen) | 2 |
+| 6 | Lager bewachen | Wächter (Verscheuchen) | 4 |
+| 7 | Bach bei Regen | Bote (Schwimmen bei Regen) | 5 |
+| 8 | Nachternte | Späher (Nachtsicht), Kletterer | 6 |
+| 9 | Große Expedition | Kletterer, Träger, Rufer | 8 |
+
+Fehlt der Gruppe für eine freigeschaltete Aufgabe eine Fähigkeit ganz, sorgt das Spiel dafür,
+dass unter den Fremden eine passende Art wartet (`GameState.needed_species`) – keine Sackgassen.
+
+## Einsatz und Erschöpfung
+
+Jeder Versuch kostet `attempt_cost` Beeren Proviant (nie mehr als das Guthaben). Wer in seiner
+Rolle scheitert, ist bis zum nächsten Morgen (`morning_hour`) erschöpft und nicht einsetzbar;
+über Nacht wachsen auch die Früchte nach. „Optionen → Warten …“ spult zum nächsten Abend bzw.
+Morgen vor. Damit lohnt sich Beobachten mehr als Durchprobieren.
+
+## Köder
+
+„Köder“ (1 Beere, `bait_cost`) und dann antippen: an einen **Baumstamm** (wer klettert hinauf?),
+in den **Bach** (wer kommt hin – watend, schwimmend, zögernd?) oder auf den **Boden** (nachts:
+wer findet die Beere im Dunkeln?). Bis zu drei Kreaturen in der Nähe (14 m) probieren es,
+auch Fremde; die Versuche landen im Protokoll.
+
+## Artfragen und Bestimmungsbuch
+
+Nach jeder Aufgabe fragt das Spiel: „Gehören A und B zur selben Art?“ – zuerst die
+ähnlichsten Paare (Doppelgänger). Richtig: `species_reward` Beeren, und beide Arten gelten als
+**bestimmt**: Das Bestimmungsbuch im Journal zeigt dann ihren wissenschaftlichen Namen und wer
+dazugehört. Die Auswertung einer Aufgabe vergleicht außerdem das Ergebnis jeder Rolle mit der
+eigenen Einschätzung („passt / passt nicht zu deiner Einschätzung“).
+
 ## Guthaben und Anheuern (`data/game/progression.json`)
 
 Neue Kreaturen kommen nur über **Anheuern** in die Gruppe:
@@ -94,8 +135,8 @@ Neue Kreaturen kommen nur über **Anheuern** in die Gruppe:
 - Preis = `price_base` + `price_per_member` × Gruppengröße ± `price_jitter`, Jungtiere ×
   `juvenile_factor`, gerundet auf 5. Anheuern geht über die Karte des Fremden oder den Knopf
   „Anheuern“; danach bekommt er einen Namen aus `data/game/names.json`.
-- Erfolgreiche Aufgaben bringen ihre `reward`, Wiederholungen × `repeat_reward_factor`,
-  Misserfolge nichts. Nach **jeder** Aufgabe wird auf `offers` Fremde aufgefüllt (bis
+- Erfolgreiche Aufgaben bringen ihre Belohnung (siehe oben), Misserfolge nichts; jeder
+  Versuch kostet den Einsatz. Nach **jeder** Aufgabe wird auf `offers` Fremde aufgefüllt (bis
   `max_group_size` einschließlich der Fremden).
 - Mit `lookalike_chance` gehört ein neuer Fremder einer Art an, die einem Mitglied oder
   Fremden möglichst ähnlich sieht (Doppelgänger, Nachahmer); oft vertretene Arten werden
@@ -108,3 +149,4 @@ Neue Kreaturen kommen nur über **Anheuern** in die Gruppe:
 | `scale` | `"auto"` oder Faktor 1.0–2.0 für Schrift und Knöpfe („Optionen → Text“). Auto: 656 / kürzere Bildschirmseite in dp (Handy ≈ 1.6, Laptop 1.0) |
 | `show_names` | Namensschilder über den Kreaturen („Optionen → Namen“), Standard an |
 | `task_prompt` | Hinweis „Eine Aufgabe wartet“ nach 20 s ohne Eingabe (danach alle 90 s), abschaltbar mit „Nicht mehr fragen“ |
+| `sound` | Geräusche und Vibration („Optionen → Ton“), Standard an |

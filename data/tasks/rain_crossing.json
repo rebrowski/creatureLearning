@@ -1,0 +1,43 @@
+{
+  "format": "creature_task/1",
+  "id": "rain_crossing",
+  "name": "Bach bei Regen",
+  "description": "Es regnet, der Bach ist kalt und schnell. Eine Botschaft muss trotzdem ans andere Ufer.",
+  "order": 7,
+  "reward": 30,
+  "unlock_after": "heavy_stone",
+  "context": {
+    "hour": 16.0,
+    "weather": "rain"
+  },
+  "places": {
+    "tree": "fruit_tree:0",
+    "crossing": "stream_near:tree"
+  },
+  "roles": [
+    {
+      "id": "messenger",
+      "name": "Bote",
+      "description": "Durchquert den Bach bei Regen.",
+      "requirements": [
+        {
+          "ability": "swim",
+          "weight": 1.0,
+          "zone": "water",
+          "wading": true
+        }
+      ],
+      "threshold": 0.55,
+      "hint_fail": "Mitten im kalten Wasser ging es nicht weiter.",
+      "hint_fail_far": "Am Ufer war Schluss – ins kalte Wasser traute sich niemand.",
+      "hint_close": "Die Strömung zerrte, aber es reichte."
+    }
+  ],
+  "steps": [
+    {
+      "type": "cross_stream",
+      "role": "messenger",
+      "place": "crossing"
+    }
+  ]
+}
