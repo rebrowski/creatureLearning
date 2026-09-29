@@ -41,6 +41,11 @@ vorhandenen Schritttypen auskommen. Beispiel: [`fruit_over_stream.json`](../data
 
 ### Schritte
 
+Während ein Schritt läuft, gehen die Beteiligten, die später noch dran sind, schon in
+seine Nähe (etwa 2.6 m). Beteiligte haben Vorrang und stupsen andere Kreaturen
+beiseite. Mit „» Schneller“ läuft die Aufgabe im Zeitraffer (×2.5).
+
+
 Jeder Schritt einer Rolle läuft mit deren (vorher berechnetem) Ergebnis als vorgegebenem Ausgang –
 die Kreaturen zeigen also sichtbar, woran es lag.
 

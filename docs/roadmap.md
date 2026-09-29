@@ -82,3 +82,14 @@ bringen Guthaben. Startgruppe: 3 Arten à 2 Tiere, davon zwei Doppelgänger-Arte
   Start sichtbar), fremde Kreaturen am Waldrand, die man beobachten und
   anheuern kann; ersetzt das automatische Dazukommen. Werte in
   `data/game/progression.json`.
+
+### 0.7.1 – zweite Runde Handy-Test
+- Kreaturen stupsen einander beiseite: Wer läuft oder an einer Aufgabe beteiligt
+  ist (`Creature.priority`), umgeht Stehende nicht, sondern schiebt sie weg.
+- Beteiligte, die später dran sind, gehen schon während des aktuellen Schritts in
+  dessen Nähe; Knopf „» Schneller“ (Zeitraffer ×2.5) während Aufgaben.
+- Einschätzung: gewählte Stufe farbig hervorgehoben mit Text (schwach/mittel/stark);
+  Debug-Werte als „wahre Werte“ gekennzeichnet.
+- Kamera: Nach einer Zwei-Finger-Geste dreht der letzte Finger nicht mehr (kein
+  Kippen beim Loslassen); Sprünge einzelner Touch-Ereignisse werden ignoriert,
+  flachster Blickwinkel begrenzt.

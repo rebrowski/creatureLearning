@@ -8,6 +8,8 @@ extends PanelContainer
 signal closed
 signal hire_requested(offer: GroupMember)
 
+const RATING_COLORS := {0: Color(1.0, 0.55, 0.45), 1: Color(1.0, 0.85, 0.4), 2: Color(0.55, 1.0, 0.45)}
+
 var journal: Journal
 var catalog: AbilityCatalog
 var member: GroupMember
@@ -84,19 +86,19 @@ func refresh() -> void:
 	# Markierung
 	var marks := HBoxContainer.new()
 	_box.add_child(marks)
-	marks.add_child(UiUtil.caption("Markierung", 95, 15))
+	marks.add_child(UiUtil.caption("Markierung", 85, 15))
 	var current: int = journal.marks.get(member.id, -1)
 	for i in Journal.MARK_COLORS.size():
-		var b := UiUtil.button("●" if current == i else "○", _set_mark.bind(i), Vector2(36, 40))
+		var b := UiUtil.button("●" if current == i else "○", _set_mark.bind(i), Vector2(32, 40))
 		b.add_theme_color_override("font_color", Journal.MARK_COLORS[i])
 		b.add_theme_color_override("font_hover_color", Journal.MARK_COLORS[i])
 		marks.add_child(b)
-	marks.add_child(UiUtil.button("–", _set_mark.bind(-1), Vector2(36, 40)))
+	marks.add_child(UiUtil.button("–", _set_mark.bind(-1), Vector2(32, 40)))
 
 	# Eigene Gruppe („gleiche Art?“)
 	var grow := HBoxContainer.new()
 	_box.add_child(grow)
-	grow.add_child(UiUtil.caption("Gruppe", 95, 15))
+	grow.add_child(UiUtil.caption("Gruppe", 85, 15))
 	var opt := OptionButton.new()
 	opt.custom_minimum_size = Vector2(200, 44)
 	opt.add_item("– keine –", 0)
@@ -107,20 +109,28 @@ func refresh() -> void:
 	opt.item_selected.connect(_on_group_selected)
 	grow.add_child(opt)
 
-	# Fähigkeiten einschätzen
+	# Fähigkeiten einschätzen (nur die eigene Meinung – das Spiel verrät keine Werte)
 	_box.add_child(UiUtil.label("Meine Einschätzung", 17, Color(0.8, 0.95, 0.6)))
 	var grid := GridContainer.new()
-	grid.columns = 4
+	grid.columns = 5
 	_box.add_child(grid)
 	for id in catalog.order:
-		grid.add_child(UiUtil.caption(catalog.name_of(id), 170, 15))
+		grid.add_child(UiUtil.caption(catalog.name_of(id), 110, 15))
 		var r := journal.rating(member.id, id)
 		for v in [0, 1, 2]:
 			var b := UiUtil.button(["–", "o", "+"][v], _set_rating.bind(id, v if r != v else -1), Vector2(44, 40))
-			b.toggle_mode = true
-			b.button_pressed = r == v
 			b.tooltip_text = Journal.RATING_LABELS[v]
+			if r == v:
+				var sb := StyleBoxFlat.new()
+				sb.bg_color = RATING_COLORS[v].darkened(0.35)
+				sb.set_corner_radius_all(6)
+				for state in ["normal", "hover", "pressed", "focus"]:
+					b.add_theme_stylebox_override(state, sb)
+				b.add_theme_color_override("font_color", Color.WHITE)
+				b.add_theme_color_override("font_hover_color", Color.WHITE)
 			grid.add_child(b)
+		grid.add_child(UiUtil.caption(Journal.RATING_LABELS[r] if r >= 0 else "", 70, 14,
+				RATING_COLORS[r] if r >= 0 else Color(1, 1, 1, 0.5)))
 
 	# Notiz
 	_box.add_child(UiUtil.label("Notiz", 17, Color(0.8, 0.95, 0.6)))
