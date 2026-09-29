@@ -12,6 +12,8 @@ extends RefCounted
 
 const NOISE := 0.04
 const CLOSE_MARGIN := 0.06
+## Liegt der Wert so weit unter der Schwelle, gilt "hint_fail_far" (falls angegeben).
+const FAR_MARGIN := 0.2
 const WADE_VALUE := 0.85
 
 
@@ -64,7 +66,9 @@ static func simulate(task: TaskDef, assignments: Dictionary, catalog: AbilityCat
 		else:
 			entry.success = entry.score >= r.threshold
 			entry.close = absf(entry.score - r.threshold) < CLOSE_MARGIN
-			if not entry.success and r.hint_fail != "":
+			if not entry.success and r.hint_fail_far != "" and entry.score < r.threshold - FAR_MARGIN:
+				hints.append(r.hint_fail_far)
+			elif not entry.success and r.hint_fail != "":
 				hints.append(r.hint_fail)
 			elif entry.success and entry.close and r.hint_close != "":
 				hints.append(r.hint_close)

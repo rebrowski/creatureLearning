@@ -163,6 +163,20 @@ func stream_info(x: float, z: float) -> Dictionary:
 	return {"distance": best, "closest": closest}
 
 
+## Fließrichtung des Bachs am nächsten Abschnitt (Reihenfolge der Punkte), normiert.
+func stream_direction(x: float, z: float) -> Vector2:
+	var p := Vector2(x, z)
+	var best := INF
+	var dir := Vector2(1, 0)
+	for i in stream_points.size() - 1:
+		var q := Geometry2D.get_closest_point_to_segment(p, stream_points[i], stream_points[i + 1])
+		var d := p.distance_to(q)
+		if d < best:
+			best = d
+			dir = (stream_points[i + 1] - stream_points[i]).normalized()
+	return dir
+
+
 func zone_at(x: float, z: float) -> String:
 	if not contains(x, z):
 		return "outside"

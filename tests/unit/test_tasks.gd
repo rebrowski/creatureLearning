@@ -61,7 +61,7 @@ func test_good_team_succeeds_poor_team_fails() -> void:
 
 func test_simulation_is_deterministic_per_attempt() -> void:
 	var t := tasks.get_task("night_walk")
-	var a := {"scout": gs.members[5], "caller": gs.members[7]}
+	var a := {"scout": gs.members[4], "caller": gs.members[5]}
 	var r1 := TaskSimulator.simulate(t, a, catalog, 3)
 	var r2 := TaskSimulator.simulate(t, a, catalog, 3)
 	assert_eq(r1.roles.scout.score, r2.roles.scout.score)

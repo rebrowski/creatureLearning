@@ -1,7 +1,8 @@
 extends CanvasLayer
 ## Autoload: blendet in allen Szenen außer dem Menü einen „Menü“-Knopf ein
 ## (oben rechts); Esc bzw. Android-Zurück führt ebenfalls zum Menü,
-## Zurück im Menü beendet die App.
+## Zurück im Menü beendet die App. Setzt außerdem die Oberflächen-Skalierung
+## (UiSettings) für alle Szenen.
 
 const MENU := "res://scenes/main.tscn"
 
@@ -19,6 +20,8 @@ func _ready() -> void:
 	_button.position += Vector2(-100, 8)
 	_button.pressed.connect(_to_menu)
 	add_child(_button)
+	UiSettings.apply(get_tree().root)
+	get_tree().root.size_changed.connect(func(): UiSettings.apply(get_tree().root))
 
 
 func _process(_delta: float) -> void:

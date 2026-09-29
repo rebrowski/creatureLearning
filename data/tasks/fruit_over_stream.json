@@ -4,6 +4,7 @@
   "name": "Frucht über den Bach",
   "description": "Am großen Baum hängt eine reife Frucht hoch oben. Einer holt sie herunter, ein anderer bringt sie über den Bach ans andere Ufer.",
   "order": 1,
+  "reward": 30,
   "context": { "hour": 10.0, "weather": "clear" },
   "places": {
     "tree": "fruit_tree:0",
@@ -27,7 +28,8 @@
       ],
       "threshold": 0.45,
       "requires": ["climber"],
-      "hint_fail": "Mitten im Bach ging es nicht weiter – die Frucht kam nicht hinüber.",
+      "hint_fail": "Mitten im Bach ging es nicht weiter – die Frucht trieb davon.",
+      "hint_fail_far": "Am Ufer war Schluss – ins Wasser traute sich niemand.",
       "hint_close": "Die Bachquerung war knapp.",
       "hint_skipped": "Der Träger hatte nichts zu tragen."
     }

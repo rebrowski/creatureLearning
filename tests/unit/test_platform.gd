@@ -46,3 +46,16 @@ func test_data_files_are_exported() -> void:
 	cfg.load("res://export_presets.cfg")
 	for s in ["preset.0", "preset.1", "preset.2"]:
 		assert_string_contains(cfg.get_value(s, "include_filter"), "data/")
+
+
+func test_ui_scale_auto_and_cycle() -> void:
+	assert_almost_eq(UiSettings.auto_scale(390.0), 1.7, 0.051, "Handy quer")
+	assert_eq(UiSettings.auto_scale(800.0), 1.0, "Laptop")
+	assert_eq(UiSettings.auto_scale(200.0), UiSettings.MAX_SCALE, "begrenzt")
+	var s := "auto"
+	var seen := []
+	for i in UiSettings.SCALES.size() + 1:
+		s = UiSettings.next_scale_setting(s)
+		seen.append(s)
+	assert_eq(seen[-1], "auto", "Durchschalten kehrt zu auto zurück")
+	assert_eq(UiSettings.scale_label("1.5"), "150 %")

@@ -41,12 +41,22 @@ func _run(i: int, id: String, max_seconds := 120.0) -> Dictionary:
 	var b := brain.current
 	var max_y := start.y
 	var t := 0.0
+	var labels := {}
+	var max_pitch := 0.0
+	var max_water := 0.0  # größte Entfernung vom Ufer ins Wasser (Meter)
+	var l: ForestLayout = world.terrain.layout
 	while brain.current == b and t < max_seconds:
 		brain.update(DT)
 		c._physics_process(DT)
 		max_y = maxf(max_y, c.global_position.y)
+		labels[c.behavior_label] = true
+		max_pitch = maxf(max_pitch, absf(c.locomotion._pitch))
+		var p := c.global_position
+		if l.zone_at(p.x, p.z) == "water":
+			max_water = maxf(max_water, l.stream_width * 0.5 - l.stream_info(p.x, p.z).distance)
 		t += DT
-	return {"outcome": b.outcome, "dy": max_y - start.y, "start": start, "end": c.global_position, "time": t}
+	return {"outcome": b.outcome, "dy": max_y - start.y, "start": start, "end": c.global_position, "time": t,
+			"labels": labels, "max_pitch": max_pitch, "max_water": max_water}
 
 
 func test_every_creature_has_abilities_and_brain() -> void:
@@ -100,6 +110,19 @@ func test_swimming_crosses_or_turns_back() -> void:
 			poor_i = i
 	var poor := _run(poor_i, "swim")
 	assert_eq(poor.outcome, "fail")
+	assert_lt(poor.max_pitch, 0.6, "kippt nicht senkrecht (Paddel-Rückkopplung)")
+
+
+func test_non_swimmer_hesitates_at_the_bank() -> void:
+	var i := _index_by_ability("swim", false)
+	var c: Creature = world.creatures[i]
+	if c.plan.leg_reach() >= 0.9:
+		pass_test("schwächster Schwimmer kann waten")
+		return
+	var r := _run(i, "swim")
+	assert_eq(r.outcome, "fail")
+	assert_true(r.labels.has("zögert am Ufer"), str(r.labels.keys()))
+	assert_lt(r.max_water, 0.8, "geht nicht weit ins Wasser")
 
 
 func test_dig_and_call_outcomes_follow_ability() -> void:

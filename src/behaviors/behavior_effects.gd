@@ -103,6 +103,22 @@ static func scent_puff(parent: Node, pos: Vector3) -> void:
 	tw.tween_property(mat, "albedo_color:a", 0.0, 1.2)
 
 
+## Gegenstand treibt auf dem Wasser mit der Strömung davon und geht langsam unter.
+static func float_away(item: Node3D, layout: ForestLayout, flow: Vector2, duration: float) -> void:
+	var start := item.global_position
+	var tw := item.create_tween()
+	tw.tween_method(func(t: float) -> void:
+		if not is_instance_valid(item):
+			return
+		var p := start + Vector3(flow.x, 0.0, flow.y) * t * duration * 0.7
+		var wl := layout.water_level_at(p.x, p.z)
+		var ground := layout.height_at(p.x, p.z)
+		var sink := smoothstep(0.6, 1.0, t) * 0.3
+		p.y = maxf(ground, wl - 0.05 - sink + sin(t * 20.0) * 0.03)
+		item.global_position = p
+		item.rotation.y += 0.02, 0.0, 1.0, duration)
+
+
 static func _spawn(parent: Node, node: Node3D, pos: Vector3, lifetime: float) -> void:
 	parent.add_child(node)
 	node.global_position = pos

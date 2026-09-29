@@ -47,7 +47,7 @@ core                                  (M1)  Ränge, Seeds, JSON
 | `src/creature/creature_rig.gd` | Knochenaufbau, erzeugt das `Skeleton3D`. |
 | `src/mesh/creature_mesh_builder.gd`, `creature.gdshader` | Ein Mesh pro Kreatur (zwei Detailstufen), Farbe/Muster im Shader. |
 | `src/locomotion/leg_ik.gd`, `gait_table.gd`, `creature_locomotion.gd` | IK, Schrittmuster, Schrittplaner und Körperhaltung. |
-| `src/creature/creature.gd`, `creature_lod.gd` | Node3D einer Kreatur: Bewegung, Bodenhaftung, LOD. |
+| `src/creature/creature.gd`, `creature_lod.gd` | Node3D einer Kreatur: Bewegung, Bodenhaftung, LOD, Namensschild, Grundflächen-Radius. |
 | `src/creature/wander_brain.gd` | Platzhalter-Verhalten (zufällige Ziele) bis M4. |
 | `src/camera/orbit_camera.gd` | Touch-Kamera: drehen, zoomen, verschieben, Zwei-Finger-Drehung, Grenzen, folgt Gelände/Kreatur. |
 | `src/world/forest_layout.gd` | Layout aus `forest.json`: Höhe und Zone an jeder Position (reine Logik). |
@@ -59,13 +59,14 @@ core                                  (M1)  Ränge, Seeds, JSON
 | `src/world/forest_navigation.gd` | Navmesh zur Laufzeit (Bach ausgespart). |
 | `src/abilities/ability_catalog.gd`, `ability_profile.gd` | Fähigkeiten aus `abilities.json`: Kopplung an sichtbare Gene, Kontextfaktoren. |
 | `src/behaviors/behavior_brain.gd`, `*_behavior.gd` | Nutzenbasierte Auswahl und zehn sichtbare Verhaltensweisen. |
-| `src/behaviors/nav_mover.gd`, `behavior_effects.gd`, `carry_item.gd` | Wegfolgen mit Abstandhalten, Effekte (Erde, Rufwellen, Löcher …), tragbare Steine. |
+| `src/behaviors/nav_mover.gd`, `behavior_effects.gd`, `carry_item.gd` | Wegfolgen mit Abstandhalten (nach Körpergröße, rechts ausweichen, Vortritt lassen), Effekte (Erde, Rufwellen, Löcher …), tragbare Steine. |
 | `src/taxonomy/species_diagnostics.gd` | Trennschärfe einzelner Gene zwischen zwei Arten (Designwerkzeug). |
-| `src/world/forest_world.gd` | Wurzel der Waldszene: Spielstand, Gruppe, Beobachtungsprotokoll, Aufgaben, HUD. |
-| `src/game/game_state.gd`, `group_member.gd` | Spielstand (JSON, mit Genomen), Gruppe, Rekrutierung. |
+| `src/world/forest_world.gd` | Wurzel der Waldszene: Spielstand, Gruppe, Fremde, Anheuern, Überlappungen auflösen, Beobachtungsprotokoll, Aufgaben, HUD, Hinweis „Aufgabe starten?“. |
+| `src/game/game_state.gd`, `group_member.gd` | Spielstand (JSON, mit Genomen), Gruppe, Guthaben, Fremde und Anheuern. |
+| `src/game/ui_settings.gd` | Oberflächen-Skalierung (auto nach Bildschirmgröße), Namensschilder, Hinweis an/aus. |
 | `src/journal/journal.gd` | Markierungen, eigene Gruppen, Notizen, Einschätzungen, Protokoll. |
 | `src/tasks/task_def.gd`, `task_catalog.gd`, `task_simulator.gd`, `task_player.gd` | Aufgaben aus JSON, Bewertung, Wiedergabe mit den echten Kreaturen. |
-| `src/ui/*` | Kreaturen-Karte, Journal, Aufgabenwahl, Auswertung (im Code gebaut, touchfreundlich). |
+| `src/ui/*` | Kreaturen-Karte, Journal, Aufgabenwahl, Auswertung, Anheuern, Aufgaben-Hinweis (im Code gebaut, touchfreundlich, passen sich der Bildschirmgröße an). |
 | `tools/build_forest.gd` | Erzeugt `forest.tscn` inkl. Spatial-Gardener-Vegetation. |
 | `src/debug/*` | Menü, Viewer, 2D-Glyphen, Vergleich, Kreaturen-Labor, Menü-Knopf (Autoload `DebugNav`). |
 | `tools/screenshot.gd` | Szene rendern und als PNG speichern (für visuelle Prüfung). |

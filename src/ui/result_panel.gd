@@ -1,7 +1,7 @@
 class_name ResultPanel
 extends Control
 ## Auswertung einer Aufgabe: Erfolg/Misserfolg, welche Rolle schwach besetzt
-## war (ohne die Lösung zu verraten), neue Gruppenmitglieder.
+## war (ohne die Lösung zu verraten), verdientes Guthaben, neue Fremde.
 
 signal closed
 
@@ -11,7 +11,8 @@ func _init() -> void:
 	visible = false
 
 
-func show_result(task: TaskDef, result: Dictionary, names: Dictionary, joined: Array) -> void:
+## outcome: GameState.record_task() → {"earned", "new_offers"}
+func show_result(task: TaskDef, result: Dictionary, names: Dictionary, outcome: Dictionary) -> void:
 	UiUtil.clear(self)
 	var panel := UiUtil.overlay(self, Vector2(700, 0))
 	var box := VBoxContainer.new()
@@ -28,7 +29,11 @@ func show_result(task: TaskDef, result: Dictionary, names: Dictionary, joined: A
 		box.add_child(UiUtil.label("%s (%s): %s" % [r.name, names.get(r.id, "?"), verdict], 17))
 	for h in result.hints:
 		box.add_child(UiUtil.label("• " + h, 15, Color(0.85, 0.9, 1.0)))
-	for m in joined:
-		box.add_child(UiUtil.label("Neu in der Gruppe: %s" % m.name, 18, Color(0.95, 0.85, 0.4)))
+	var cur := GameState.currency()
+	if outcome.get("earned", 0) > 0:
+		box.add_child(UiUtil.label("+%d %s" % [outcome.earned, cur], 26, Color(0.95, 0.85, 0.4)))
+	var n: int = outcome.get("new_offers", []).size()
+	if n > 0:
+		box.add_child(UiUtil.label(("Am Waldrand wartet eine neue fremde Kreatur" if n == 1 else "Am Waldrand warten %d neue fremde Kreaturen" % n) + " – unter „Anheuern“.", 16, Color(0.95, 0.85, 0.4)))
 	box.add_child(UiUtil.button("Weiter", func(): visible = false; closed.emit(), Vector2(200, 52)))
 	visible = true

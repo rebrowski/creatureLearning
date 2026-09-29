@@ -14,6 +14,8 @@ var genome: Genome
 var morphs: Dictionary = {}
 ## Anzahl gelöster Aufgaben, als das Mitglied dazukam (0 = Startgruppe).
 var joined_after := 0
+## Preis zum Anheuern (nur bei Fremden, sonst 0).
+var price := 0
 
 
 static func from_individual(ind: Individual, display_name: String, joined := 0) -> GroupMember:
@@ -44,7 +46,7 @@ func to_individual() -> Individual:
 
 func to_dict() -> Dictionary:
 	return {"id": id, "name": name, "species": species_id, "index": index, "sex": sex, "age": age,
-			"morphs": morphs, "joined_after": joined_after, "genome": genome.to_dict()}
+			"morphs": morphs, "joined_after": joined_after, "price": price, "genome": genome.to_dict()}
 
 
 static func from_dict(schema: GenomeSchema, d: Dictionary) -> GroupMember:
@@ -57,5 +59,6 @@ static func from_dict(schema: GenomeSchema, d: Dictionary) -> GroupMember:
 	m.age = str(d.get("age", "adult"))
 	m.morphs = d.get("morphs", {})
 	m.joined_after = int(d.get("joined_after", 0))
+	m.price = int(d.get("price", 0))
 	m.genome = Genome.from_dict(schema, d.get("genome", {}))
 	return m
