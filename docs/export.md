@@ -71,3 +71,19 @@ Im Spiel **Debug** einschalten:
 
 Messwerte im Container (keine echte GPU) sagen über Handys wenig; CPU-Seite siehe
 `docs/creature_rendering.md` und `docs/abilities_format.md`.
+
+## Updates der Web-App
+
+Der Service Worker der PWA speichert das Spiel offline. Nach einer neuen
+Veröffentlichung erkennt die App die neue Version selbst
+(`JavaScriptBridge.pwa_update_available`, siehe `src/debug/debug_nav.gd`): im
+Menü wird sofort neu geladen, im Spiel erscheint oben rechts „Neue Version
+laden“ (speichert vorher). Die Versionsnummer steht unten im Menü
+(`application/config/version` in `project.godot` – bei Veröffentlichungen erhöhen).
+
+Versionen **vor 0.7.0** kennen diesen Mechanismus noch nicht. Dort hilft einmalig:
+App bzw. Tab ganz schließen (auch aus der App-Übersicht wischen) und zweimal neu
+öffnen – oder die Website-Daten löschen (Chrome: Einstellungen → Website-Einstellungen
+→ Alle Websites → rebrowski.github.io → Löschen; iPhone: Einstellungen → Apps →
+Safari → Erweitert → Websitedaten → github.io entfernen, Home-Bildschirm-App löschen
+und neu hinzufügen).
