@@ -3,7 +3,7 @@ extends Camera3D
 ## Einfache Orbit-Kamera für Debug-Szenen, Maus und Touch.
 ##
 ##   ein Finger / linke Maustaste ziehen  -> drehen
-##   zwei Finger ziehen / rechte Maustaste -> verschieben
+##   zwei Finger ziehen / rechte Maustaste -> verschieben (Schwerpunkt der Finger)
 ##   zwei Finger drehen / Q, E             -> um die Hochachse drehen
 ##   Pinch / Mausrad                       -> zoomen
 ## Kurzes Tippen ohne Ziehen meldet `tapped(screen_pos)`.
@@ -21,6 +21,12 @@ signal tapped(screen_pos: Vector2)
 @export var max_distance := 60.0
 @export var rotate_speed := 0.008
 @export var pan_speed := 0.0025
+## Steilster und flachster Blickwinkel (rad). Flacher als MIN_PITCH sähe man
+## nur noch den Boden vom Rand her.
+@export var min_pitch := -1.45
+@export var max_pitch := -0.2
+## Größere Sprünge eines Fingers pro Ereignis gelten als Fehlmessung (Pixel).
+const MAX_STEP := 150.0
 ## Rechteck (x, z) für den Drehpunkt; Größe 0 = unbegrenzt.
 @export var bounds := Rect2()
 var follow: Node3D
@@ -30,6 +36,9 @@ var _touches: Dictionary = {}  # index -> Position
 var _drag_moved := 0.0
 var _last_pinch := 0.0
 var _last_twist := 0.0
+var _last_center := Vector2.ZERO
+## größte Fingerzahl der laufenden Geste (1 = reines Ein-Finger-Ziehen)
+var _gesture_fingers := 0
 var _mouse_panning := false
 
 
@@ -51,7 +60,7 @@ func _apply() -> void:
 		var h: float = ground_height.call(target.x, target.z)
 		if not is_nan(h):
 			target.y = lerpf(target.y, h, 0.2)
-	pitch = clampf(pitch, -1.45, -0.05)
+	pitch = clampf(pitch, min_pitch, max_pitch)
 	distance = clampf(distance, min_distance, max_distance)
 	var offset := Vector3(0.0, 0.0, distance).rotated(Vector3.RIGHT, pitch).rotated(Vector3.UP, yaw)
 	global_position = target + offset
@@ -61,31 +70,43 @@ func _apply() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
 		if event.pressed:
-			_touches[event.index] = event.position
-			if _touches.size() == 1:
+			if _touches.is_empty():
 				_drag_moved = 0.0
-			_last_pinch = _pinch_distance()
-			_last_twist = _twist_angle()
+				_gesture_fingers = 0
+			_touches[event.index] = event.position
+			_gesture_fingers = maxi(_gesture_fingers, _touches.size())
 		else:
 			_touches.erase(event.index)
-			if _touches.is_empty() and _drag_moved < 12.0:
+			if _touches.is_empty() and _drag_moved < 12.0 and _gesture_fingers == 1:
 				tapped.emit(event.position)
-			_last_pinch = _pinch_distance()
-			_last_twist = _twist_angle()
+		_reset_multi()
 	elif event is InputEventScreenDrag:
+		if not _touches.has(event.index):
+			return  # Drag ohne bekanntes Aufsetzen (z. B. nach Fokuswechsel) ignorieren
+		var prev: Vector2 = _touches[event.index]
 		_touches[event.index] = event.position
-		_drag_moved += event.relative.length()
+		# eigene Differenz statt event.relative: nach dem Abheben eines Fingers
+		# liefern manche Browser (iOS) einen Sprung
+		var rel: Vector2 = event.position - prev
+		if rel.length() > MAX_STEP:
+			return
+		_drag_moved += rel.length()
 		if _touches.size() == 1:
-			_rotate(event.relative)
+			# nach einer Zwei-Finger-Geste nicht drehen, bis alle Finger oben sind –
+			# sonst kippt der letzte Finger beim Loslassen die Ansicht
+			if _gesture_fingers == 1:
+				_rotate(rel)
 		elif _touches.size() >= 2:
 			var pinch := _pinch_distance()
-			if _last_pinch > 0.0:
-				distance *= _last_pinch / maxf(pinch, 1.0)
+			if _last_pinch > 0.0 and pinch > 1.0:
+				distance *= _last_pinch / pinch
 			_last_pinch = pinch
 			var twist := _twist_angle()
 			yaw -= wrapf(twist - _last_twist, -PI, PI)
 			_last_twist = twist
-			_pan(event.relative * 0.5)
+			var center := _centroid()
+			_pan(center - _last_center)
+			_last_center = center
 	elif event is InputEventMouseButton:
 		# Touch-Emulation liefert Maus-Links bereits als Touch; hier nur Rad/rechts.
 		match event.button_index:
@@ -115,6 +136,22 @@ func _pan(rel: Vector2) -> void:
 	var right := global_transform.basis.x
 	var fwd := Vector3(-global_transform.basis.z.x, 0.0, -global_transform.basis.z.z).normalized()
 	target += (-right * rel.x + fwd * rel.y) * pan_speed * distance
+
+
+## Bezugswerte der Mehrfinger-Geste neu setzen (bei jedem Aufsetzen/Abheben).
+func _reset_multi() -> void:
+	_last_pinch = _pinch_distance()
+	_last_twist = _twist_angle()
+	_last_center = _centroid()
+
+
+func _centroid() -> Vector2:
+	if _touches.is_empty():
+		return Vector2.ZERO
+	var c := Vector2.ZERO
+	for p in _touches.values():
+		c += p
+	return c / _touches.size()
 
 
 func _twist_angle() -> float:

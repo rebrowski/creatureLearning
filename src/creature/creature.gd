@@ -40,6 +40,9 @@ var scripted := false
 var held_item: Node3D
 ## Radius der Grundfläche (für Abstand halten, siehe BodyPlan.footprint_radius).
 var radius := 0.5
+## Vorrang beim Abstandhalten: Wer mehr Vorrang hat, schiebt die anderen
+## beiseite, statt auszuweichen (2 = gerade an einer Aufgabe beteiligt).
+var priority := 0
 ## Namensschild über der Kreatur (null = keins).
 var tag: Label3D
 var _tag_height := 1.0

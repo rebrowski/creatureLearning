@@ -26,6 +26,8 @@ const STRANGER_ROAM := 5.0
 const TAG_MEMBER := Color(1, 1, 1)
 const TAG_STRANGER := Color(1.0, 0.75, 0.35)
 const TAG_ROLE := Color(1.0, 0.92, 0.45)
+## Zeitraffer während einer Aufgabe (Knopf „Schneller“).
+const TASK_FAST := 2.5
 ## Vergangenheitsform für das Protokoll
 const PAST := {
 	"climb_rock": "kletterte auf einen Felsen", "climb_tree": "kletterte auf einen Baum",
@@ -73,6 +75,8 @@ var _result_panel: ResultPanel
 var _hire_panel: HirePanel
 var _prompt: TaskPrompt
 var _banner: Label
+var _fast: Button
+var _fast_on := false
 var _credits: Label
 var _idle := 0.0
 var _prompt_after := PROMPT_IDLE
@@ -256,10 +260,28 @@ func _separate(delta: float) -> void:
 			if dist >= r:
 				continue
 			var n := d / dist if dist > 0.001 else Vector2(1, 0)
-			var overlap := minf(r - dist, max_step * 2.0)
-			var share_a := 0.0 if a.scripted else (1.0 if b.scripted else 0.5)
+			var share_a := _push_share(a, b)
+			# wer beiseitegestupst wird, weicht zügiger
+			var step := max_step * (3.0 if share_a != 0.5 else 1.0)
+			var overlap := minf(r - dist, step * 2.0)
 			_nudge(a, -n * overlap * share_a, l)
 			_nudge(b, n * overlap * (1.0 - share_a), l)
+
+
+## Anteil der Überlappung, um den a verschoben wird (Rest: b). Skript-Bewegung
+## wird nie verschoben; sonst weicht, wer weniger Vorrang hat oder stillsteht.
+func _push_share(a: Creature, b: Creature) -> float:
+	if a.scripted:
+		return 0.0
+	if b.scripted:
+		return 1.0
+	if a.priority != b.priority:
+		return 0.1 if a.priority > b.priority else 0.9
+	var a_moving := a.velocity.length() > NavMover.STILL_SPEED
+	var b_moving := b.velocity.length() > NavMover.STILL_SPEED
+	if a_moving != b_moving:
+		return 0.15 if a_moving else 0.85
+	return 0.5
 
 
 func _nudge(c: Creature, offset: Vector2, l: ForestLayout) -> void:
@@ -358,7 +380,8 @@ func _debug_text(c: Creature) -> String:
 	var parts := []
 	for entry in c.abilities.ranked():
 		parts.append("%s %d" % [catalog.name_of(entry[0]), int(entry[1] * 100)])
-	return "Debug: %s\n%s" % [game.taxonomy.get_taxon(m.species_id).display_name(), " · ".join(parts)]
+	return "Debug – Art: %s\nWahre Fähigkeitswerte (0–100, ändern sich nicht durch deine Einschätzung):\n%s" % [
+			game.taxonomy.get_taxon(m.species_id).display_name(), " · ".join(parts)]
 
 
 # --- Aufgaben -----------------------------------------------------------------
@@ -378,7 +401,10 @@ func start_task(task: TaskDef, assignments: Dictionary) -> void:
 	_roles_shown.clear()
 	for role_id in actors:
 		_roles_shown[actors[role_id]] = task.role(role_id).name
+		actors[role_id].priority = 2
 	_update_tags()
+	_fast.visible = true
+	_fast.text = "» Schneller"
 	_player = TaskPlayer.new()
 	add_child(_player)
 	_player.step_started.connect(func(t):
@@ -406,10 +432,26 @@ func _on_task_finished(result: Dictionary, task: TaskDef, role_names: Dictionary
 	_player.queue_free()
 	_player = null
 	_banner.visible = false
+	_fast.visible = false
+	if _fast_on:
+		_set_task_speed(1.0)
+	for c in _roles_shown:
+		if is_instance_valid(c):
+			c.priority = 0
 	_roles_shown.clear()
 	_update_tags()
 	_idle = 0.0
 	_result_panel.show_result(task, result, role_names, outcome)
+
+
+func _toggle_fast() -> void:
+	_set_task_speed(1.0 if _fast_on else TASK_FAST)
+
+
+func _set_task_speed(scale: float) -> void:
+	_fast_on = scale > 1.0
+	debug_speed(scale)
+	_fast.text = "▶ Normal" if _fast_on else "» Schneller"
 
 
 # --- Anheuern -----------------------------------------------------------------
@@ -575,6 +617,14 @@ func _build_hud() -> void:
 	_banner.offset_top = 140
 	_banner.visible = false
 	ui.add_child(_banner)
+	_fast = UiUtil.button("» Schneller", _toggle_fast, Vector2(170, 48))
+	_fast.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+	_fast.offset_left = -190
+	_fast.offset_top = -64
+	_fast.offset_right = -20
+	_fast.offset_bottom = -16
+	_fast.visible = false
+	ui.add_child(_fast)
 
 	_card = CreatureCard.new()
 	_card.visible = false
@@ -692,6 +742,13 @@ func add_test_creatures(count: int) -> void:
 ## Kreatur Nummer i auswählen (Screenshots).
 func debug_select(i: int) -> void:
 	_select(creatures[i])
+
+
+## "i:fähigkeit:wert" – Einschätzung im Journal setzen (Screenshots).
+func debug_rate(spec: String) -> void:
+	var p := spec.split(":")
+	game.journal.set_rating(game.members[int(p[0])].id, p[1], int(p[2]))
+	_select(creatures[int(p[0])])
 
 
 ## "journal", "tasks", "hire" oder "prompt" öffnen (Screenshots).

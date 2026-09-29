@@ -23,6 +23,8 @@ const RESULT_PAUSE := 1.6
 ## So lange stehen ✓/✗ über den Beteiligten, bevor die Auswertung kommt.
 const MARKER_TIME := 2.5
 const OK_COLOR := Color(0.55, 1.0, 0.45)
+## Abstand, in dem die übrigen Beteiligten beim aktuellen Schritt warten (Meter).
+const ESCORT_DISTANCE := 2.6
 const FAIL_COLOR := Color(1.0, 0.5, 0.4)
 const FRUIT_COLOR := Color(0.85, 0.2, 0.15)
 
@@ -34,6 +36,8 @@ var actors: Dictionary = {}
 var running := false
 
 var _items: Dictionary = {}  # Name -> Node3D
+## Creature -> true: Beteiligte, die schon zum Ort des aktuellen Schritts laufen
+var _escorts: Dictionary = {}
 var _names: Dictionary = {}  # Creature -> Anzeigename
 
 
@@ -56,6 +60,10 @@ func play(p_world: Node3D, p_task: TaskDef, p_result: Dictionary, creatures: Dic
 		if not running:
 			break
 		await _run_step(step)
+	for c in _escorts:
+		if is_instance_valid(c):
+			_brain(c).mover.stop()
+	_escorts.clear()
 	if running:
 		await _show_markers()
 	step_started.emit("")
@@ -92,8 +100,46 @@ func _who(role_id: String, c: Creature) -> String:
 func _pause(seconds: float) -> void:
 	var t := 0.0
 	while t < seconds:
-		await get_tree().physics_frame
+		await _frame()
 		t += get_physics_process_delta_time()
+
+
+## Ein Physik-Frame; nebenbei laufen die übrigen Beteiligten weiter zum Geschehen.
+func _frame() -> void:
+	await get_tree().physics_frame
+	var dt := get_physics_process_delta_time()
+	for c in _escorts.keys():
+		if not is_instance_valid(c):
+			_escorts.erase(c)
+		elif _brain(c).mover.step(dt):
+			_brain(c).mover.stop()
+			_escorts.erase(c)
+
+
+## Wer später noch dran ist, geht schon jetzt in die Nähe des aktuellen Schritts,
+## damit er nicht erst von weit her anlaufen muss.
+func _send_escorts(step: Dictionary, active_role: String) -> void:
+	var idx := task.steps.find(step)
+	var upcoming := {}
+	for later in task.steps.slice(idx + 1):
+		upcoming[str(later.get("role", ""))] = true
+	var place := _place_of(step)
+	var n := 0
+	for role_id in actors:
+		var other: Creature = actors[role_id]
+		if role_id == active_role or not upcoming.has(role_id) or not is_instance_valid(other):
+			continue
+		if result.roles.get(role_id, {}).get("skipped", false):
+			continue
+		var away := other.global_position - place
+		away.y = 0.0
+		away = away.normalized() if away.length() > 0.01 else Vector3.BACK
+		away = away.rotated(Vector3.UP, 0.5 * n)
+		var target := place + away * (ESCORT_DISTANCE + other.radius)
+		if Vector2(other.global_position.x - target.x, other.global_position.z - target.z).length() > 1.0:
+			_brain(other).mover.go(target)
+			_escorts[other] = true
+		n += 1
 
 
 func role_ok(role_id: String) -> bool:
@@ -141,6 +187,9 @@ func _run_step(step: Dictionary) -> void:
 		return
 	var outcome := "success" if role_ok(role_id) else "fail"
 	var who := _who(role_id, c)
+	_escorts.erase(c)
+	_brain(c).mover.stop()
+	_send_escorts(step, role_id)
 	world.camera.follow = c
 	world.camera.distance = clampf(world.camera.distance, 5.0, 9.0)
 	world.selected = c
@@ -169,7 +218,7 @@ func _run_step(step: Dictionary) -> void:
 			await _walk(c, item.global_position, true)
 			c.locomotion.pose_pitch = -0.3
 			for i in 30:
-				await get_tree().physics_frame
+				await _frame()
 			c.locomotion.pose_pitch = 0.0
 			c.held_item = item
 		"cross_stream":
@@ -214,10 +263,12 @@ func _run_step(step: Dictionary) -> void:
 					break
 				await get_tree().physics_frame
 				t += get_physics_process_delta_time()
+			for other in actors.values():
+				_brain(other).mover.stop()
 		"wait":
 			var t2 := 0.0
 			while t2 < float(step.get("seconds", 1.0)):
-				await get_tree().physics_frame
+				await _frame()
 				t2 += get_physics_process_delta_time()
 
 
@@ -227,7 +278,7 @@ func _force_and_wait(c: Creature, behavior_id: String, p: Dictionary) -> void:
 	var b := brain.current
 	var t := 0.0
 	while brain.current == b and b != null and t < STEP_TIMEOUT:
-		await get_tree().physics_frame
+		await _frame()
 		t += get_physics_process_delta_time()
 	brain.stop_current()
 
@@ -240,7 +291,7 @@ func _walk(c: Creature, target: Vector3, near: bool, timeout := STEP_TIMEOUT) ->
 	while t < timeout:
 		if mover.step(get_physics_process_delta_time()) or (near and mover.distance_to_goal() < 0.9):
 			break
-		await get_tree().physics_frame
+		await _frame()
 		t += get_physics_process_delta_time()
 	mover.stop()
 
@@ -254,7 +305,7 @@ func _wander_lost(c: Creature) -> void:
 		mover.go(c.global_position + Vector3(cos(a), 0.0, sin(a)) * rng.randf_range(3.0, 6.0))
 		var t := 0.0
 		while t < 8.0 and not mover.step(get_physics_process_delta_time(), 0.6):
-			await get_tree().physics_frame
+			await _frame()
 			t += get_physics_process_delta_time()
 	mover.stop()
 

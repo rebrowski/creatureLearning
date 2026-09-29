@@ -131,3 +131,16 @@ func test_hiring_a_stranger() -> void:
 	assert_eq(world.members[c], offer)
 	assert_eq(c.tag.text, offer.name, "Schild zeigt jetzt den Namen")
 	assert_eq(world.game.credits, 0)
+
+
+func test_push_share_prefers_priority_and_movers() -> void:
+	var a: Creature = world.creatures[2]
+	var b: Creature = world.creatures[3]
+	a.priority = 2
+	assert_lt(world._push_share(a, b), 0.5, "Aufgaben-Beteiligte stupsen andere beiseite")
+	a.priority = 0
+	a.velocity = Vector3(0.5, 0, 0)
+	b.velocity = Vector3.ZERO
+	assert_lt(world._push_share(a, b), 0.5, "wer läuft, schiebt Stehende beiseite")
+	assert_true(world.brains[2].mover.yields_to_me(b), "Stehende werden nicht umgangen")
+	a.velocity = Vector3.ZERO

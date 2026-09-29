@@ -1,9 +1,11 @@
 class_name NavMover
 extends RefCounted
 ## Läuft über das Navmesh zu einem Ziel und hält Abstand zu Nachbarn:
-## Nachbarn in Laufrichtung weicht die Kreatur nach rechts aus; kommt ihr
-## jemand direkt entgegen, wartet eine der beiden kurz (Vorrang nach ID).
-## Überlappungen löst die Welt zusätzlich hart auf (ForestWorld._separate).
+## Entgegenkommenden weicht die Kreatur nach rechts aus (kommt ihr jemand
+## direkt entgegen, wartet eine der beiden kurz, Vorrang nach ID). Stehende
+## Kreaturen und solche mit weniger Vorrang (Creature.priority) werden nicht
+## umgangen, sondern beiseitegestupst – das erledigt die Welt beim Auflösen
+## von Überlappungen (ForestWorld._separate).
 
 const ARRIVE_DISTANCE := 0.6
 ## Zusätzlicher Abstand zwischen den Grundflächen zweier Kreaturen.
@@ -11,6 +13,8 @@ const SEPARATION_MARGIN := 0.4
 ## So weit voraus (Meter, plus Radien) wird auf Entgegenkommende geachtet.
 const LOOK_AHEAD := 2.0
 const YIELD_TIME := 0.8
+## Langsamer gilt eine Kreatur als stehend (m/s).
+const STILL_SPEED := 0.05
 
 var creature: Creature
 var navigation: ForestNavigation
@@ -94,7 +98,7 @@ func separation() -> Vector3:
 	var push := Vector3.ZERO
 	var pos := creature.global_position
 	for o in others:
-		if o == creature or not is_instance_valid(o) or o.scripted:
+		if o == creature or not is_instance_valid(o) or o.scripted or yields_to_me(o):
 			continue
 		var d := Vector3(pos.x - o.global_position.x, 0.0, pos.z - o.global_position.z)
 		var dist := d.length()
@@ -104,6 +108,13 @@ func separation() -> Vector3:
 	return push
 
 
+## Wird beiseitegestupst statt umgangen: weniger Vorrang, oder steht nur herum.
+func yields_to_me(o: Creature) -> bool:
+	if o.scripted:
+		return false
+	return o.priority < creature.priority or (o.priority == creature.priority and o.velocity.length() < STILL_SPEED)
+
+
 ## Nachbar voraus? {} = frei; sonst {"side": Ausweichrichtung, "slow": Faktor,
 ## "yield": true = kurz warten und dem anderen den Vortritt lassen}.
 func avoidance(dir: Vector3) -> Dictionary:
@@ -111,7 +122,7 @@ func avoidance(dir: Vector3) -> Dictionary:
 	var best: Creature = null
 	var best_ahead := INF
 	for o in others:
-		if o == creature or not is_instance_valid(o) or not o.visible:
+		if o == creature or not is_instance_valid(o) or not o.visible or yields_to_me(o):
 			continue
 		var d := Vector3(o.global_position.x - pos.x, 0.0, o.global_position.z - pos.z)
 		var ahead := d.dot(dir)
