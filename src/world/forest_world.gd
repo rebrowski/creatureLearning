@@ -8,7 +8,9 @@ extends Node3D
 ## Knoten werden über ihre Namen gefunden.
 ## Ohne Spielstand (Tests, Screenshots): Root-Meta "forest_no_save" setzen.
 
-const TIME_SCALES := [1.0, 10.0, 60.0, 0.0]
+## Tempo-Stufen (Knopf „Tempo“): beschleunigt alles – Kreaturen, Aufgaben und
+## Tageszeit (Engine.time_scale); 0 = Pause.
+const TIME_SCALES := [1.0, 1.5, 2.0, 3.0, 4.0, 0.0]
 const WEATHER_MODES := ["auto", "clear", "cloudy", "rain"]
 const WEATHER_LABELS := {"clear": "klar", "cloudy": "bewölkt", "rain": "Regen"}
 const PHASE_LABELS := {"night": "Nacht", "dawn": "Morgen", "day": "Tag", "dusk": "Abend"}
@@ -26,8 +28,6 @@ const STRANGER_ROAM := 5.0
 const TAG_MEMBER := Color(1, 1, 1)
 const TAG_STRANGER := Color(1.0, 0.75, 0.35)
 const TAG_ROLE := Color(1.0, 0.92, 0.45)
-## Zeitraffer während einer Aufgabe (Knopf „Schneller“).
-const TASK_FAST := 2.5
 ## Vergangenheitsform für das Protokoll
 const PAST := {
 	"climb_rock": "kletterte auf einen Felsen", "climb_tree": "kletterte auf einen Baum",
@@ -77,7 +77,6 @@ var _prompt: TaskPrompt
 var _banner: Label
 var _fast: Button
 var _focus: Button
-var _fast_on := false
 var _credits: Label
 var _idle := 0.0
 var _prompt_after := PROMPT_IDLE
@@ -131,6 +130,12 @@ func _ready() -> void:
 		_spawn_stranger(o)
 	_spawn_items(l)
 	_update_tags()
+
+
+func _exit_tree() -> void:
+	# Tempo gilt nur in der Waldwelt (Engine.time_scale ist global)
+	if _time_index != 0:
+		debug_speed(1.0)
 
 
 func _notification(what: int) -> void:
@@ -406,7 +411,6 @@ func start_task(task: TaskDef, assignments: Dictionary) -> void:
 	_update_tags()
 	_fast.visible = true
 	_focus.visible = true
-	_fast.text = "» Schneller"
 	_player = TaskPlayer.new()
 	add_child(_player)
 	_player.step_started.connect(func(t):
@@ -436,8 +440,6 @@ func _on_task_finished(result: Dictionary, task: TaskDef, role_names: Dictionary
 	_banner.visible = false
 	_fast.visible = false
 	_focus.visible = false
-	if _fast_on:
-		_set_task_speed(1.0)
 	for c in _roles_shown:
 		if is_instance_valid(c):
 			c.priority = 0
@@ -478,14 +480,14 @@ func cycle_selection(direction: int) -> void:
 	_select(list[posmod(i + direction, list.size())] if i >= 0 else list[0])
 
 
-func _toggle_fast() -> void:
-	_set_task_speed(1.0 if _fast_on else TASK_FAST)
-
-
-func _set_task_speed(scale: float) -> void:
-	_fast_on = scale > 1.0
+## Tempo setzen (Index in TIME_SCALES) und beide Tempo-Knöpfe beschriften.
+func set_tempo(index: int) -> void:
+	_time_index = posmod(index, TIME_SCALES.size())
+	var scale: float = TIME_SCALES[_time_index]
 	debug_speed(scale)
-	_fast.text = "▶ Normal" if _fast_on else "» Schneller"
+	var text := "Pause" if scale == 0.0 else ("Tempo ×%s" % String.num(scale, 1).trim_suffix(".0"))
+	_time_button.text = text
+	_fast.text = "» " + text
 
 
 # --- Anheuern -----------------------------------------------------------------
@@ -601,7 +603,7 @@ func _build_hud() -> void:
 	opts.visible = false
 	root.add_child(opts)
 	more.pressed.connect(func(): opts.visible = not opts.visible)
-	_time_button = _button(opts, "Zeit ×1", _cycle_time)
+	_time_button = _button(opts, "Tempo ×1", _cycle_time)
 	_weather_button = _button(opts, "Wetter: auto", _cycle_weather)
 	var names := _button(opts, "Namen: an" if show_names else "Namen: aus", Callable())
 	names.pressed.connect(func():
@@ -651,7 +653,7 @@ func _build_hud() -> void:
 	_banner.offset_top = 140
 	_banner.visible = false
 	ui.add_child(_banner)
-	_fast = UiUtil.button("» Schneller", _toggle_fast, Vector2(170, 48))
+	_fast = UiUtil.button("» Tempo ×1", _cycle_time, Vector2(170, 48))
 	_fast.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
 	_fast.offset_left = -190
 	_fast.offset_top = -64
@@ -721,9 +723,7 @@ func _outlined_label() -> Label:
 
 
 func _cycle_time() -> void:
-	_time_index = (_time_index + 1) % TIME_SCALES.size()
-	day_night.time_scale = TIME_SCALES[_time_index]
-	_time_button.text = "Zeit ×%d" % TIME_SCALES[_time_index] if TIME_SCALES[_time_index] > 0.0 else "Zeit angehalten"
+	set_tempo(_time_index + 1)
 
 
 func _cycle_weather() -> void:
@@ -749,7 +749,7 @@ func debug_force(spec: String) -> void:
 ## Simulationsgeschwindigkeit (1 = normal).
 func debug_speed(scale: float) -> void:
 	Engine.time_scale = scale
-	Engine.max_physics_steps_per_frame = maxi(8, int(8 * scale))
+	Engine.max_physics_steps_per_frame = maxi(8, int(ceilf(8 * scale)))
 
 
 ## "aufgabe:rolle=index,rolle=index" – startet eine Aufgabe (Screenshots, Tests).

@@ -97,3 +97,8 @@ bringen Guthaben. Startgruppe: 3 Arten à 2 Tiere, davon zwei Doppelgänger-Arte
 ### 0.7.2
 - Während Aufgaben: Knopf „◎ Zur Aufgabe“ bringt die Kamera zur Kreatur, die gerade am Zug ist.
 - Kreaturen-Karte: mit ‹ › durch alle Kreaturen blättern (Gruppe, dann Fremde).
+
+### 0.7.3
+- „Tempo“ statt „Zeit“: 1× / 1.5× / 2× / 3× / 4× / Pause beschleunigt alles
+  (Kreaturen, Aufgaben, Tageszeit) über `Engine.time_scale`; derselbe Knopf
+  erscheint während Aufgaben unten rechts. Beim Verlassen der Waldwelt zurück auf 1×.
