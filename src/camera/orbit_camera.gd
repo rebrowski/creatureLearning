@@ -31,6 +31,10 @@ const MAX_STEP := 150.0
 @export var bounds := Rect2()
 var follow: Node3D
 var ground_height: Callable
+## Verschiebt den Drehpunkt im Bild nach oben (Anteil der halben Bildhöhe,
+## 0 = Mitte, 0.5 = auf halbem Weg zum oberen Rand) – für Leisten am unteren Rand.
+var view_shift := 0.0
+var _shift := 0.0
 
 var _touches: Dictionary = {}  # index -> Position
 var _drag_moved := 0.0
@@ -49,6 +53,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if follow != null and is_instance_valid(follow):
 		target = target.lerp(follow.global_position, 1.0 - exp(-5.0 * delta))
+	_shift = lerpf(_shift, view_shift, 1.0 - exp(-6.0 * delta))
 	_apply()
 
 
@@ -65,6 +70,8 @@ func _apply() -> void:
 	var offset := Vector3(0.0, 0.0, distance).rotated(Vector3.RIGHT, pitch).rotated(Vector3.UP, yaw)
 	global_position = target + offset
 	look_at(target, Vector3.UP)
+	# Kamera in ihrer eigenen Hochachse absenken -> Drehpunkt erscheint weiter oben
+	v_offset = -distance * tan(deg_to_rad(fov * 0.5)) * _shift
 
 
 func _unhandled_input(event: InputEvent) -> void:
