@@ -39,6 +39,11 @@ const BAIT_RADIUS := 14.0
 const BAIT_MAX_TRIALS := 3
 ## Zeitraffer für „Überspringen“ (schon gesehene Aufgaben).
 const SKIP_SPEED := 6.0
+## Rollenwahl-Filter „In der Nähe“: Umkreis um den Ort der Aufgabe (Meter).
+const NEAR_RADIUS := 15.0
+## Kamera-Verschiebung je Leistenhöhe (1 = Kreatur genau mittig im freien Bereich;
+## etwas weniger, damit sie nicht unter die Knöpfe oben rutscht).
+const VIEW_SHIFT_FACTOR := 0.7
 ## Vergangenheitsform für das Protokoll
 const PAST := {
 	"climb_rock": "kletterte auf einen Felsen", "climb_tree": "kletterte auf einen Baum",
@@ -110,7 +115,6 @@ var _bait_button: Button
 ## laufende Köder-Versuche: [{"brain", "behavior"}]; bait_resolved, wenn alle fertig sind
 var _bait_trials: Array = []
 var _bait_info: Dictionary = {}
-var _pick_cancel: Button
 var _player: TaskPlayer
 var _history_seen: Dictionary = {}  # BehaviorBrain -> Anzahl bereits gesehener Einträge
 var _autosave := AUTOSAVE_SECONDS
@@ -594,39 +598,133 @@ func _check_bait_trials() -> void:
 # --- Rollen durch Antippen besetzen -------------------------------------------
 
 func _begin_pick(task: TaskDef, role_id: String) -> void:
-	_picking = {"task": task, "role": role_id}
-	_card.visible = false
-	camera.follow = null
-	_banner.text = "Wähle: %s – tippe eine Kreatur an" % task.role(role_id).name
-	_banner.visible = true
-	_pick_cancel.visible = true
+	_picking = {"task": task, "role": role_id, "filter": "group", "list": [], "index": 0}
+	_refresh_pick_list()
+	_show_pick()
 
 
 func _end_pick(reopen := true) -> void:
 	var task: TaskDef = _picking.get("task")
 	_picking = {}
+	_card.visible = false
 	_banner.visible = false
-	_pick_cancel.visible = false
 	if reopen and task != null:
 		_task_panel.open(game, tasks, task, catalog)
 
 
+## Kandidaten je Filter: "group" (fitte zuerst), "strangers", "near" (um den Ort der Aufgabe).
+func _refresh_pick_list() -> void:
+	var list: Array[Creature] = []
+	match str(_picking.filter):
+		"strangers":
+			for o in game.offers:
+				var c := creature_of(o)
+				if c != null:
+					list.append(c)
+		"near":
+			var place := _task_place(_picking.task)
+			for c in browse_order():
+				if c.global_position.distance_to(place) < NEAR_RADIUS:
+					list.append(c)
+			list.sort_custom(func(a, b): return a.global_position.distance_to(place) < b.global_position.distance_to(place))
+		_:
+			var tired: Array[Creature] = []
+			for m in game.members:
+				var c := creature_of(m)
+				if c == null:
+					continue
+				if m.exhausted:
+					tired.append(c)
+				else:
+					list.append(c)
+			list.append_array(tired)
+	_picking.list = list
+	_picking.index = 0
+
+
+func _show_pick() -> void:
+	var list: Array = _picking.list
+	var task: TaskDef = _picking.task
+	var role: Dictionary = task.role(_picking.role)
+	var info := {"role": role.name, "filter": _picking.filter, "index": _picking.index, "count": list.size()}
+	if not list.is_empty():
+		var c: Creature = list[_picking.index]
+		var m := _member_of(c)
+		var stranger := strangers.has(c)
+		var ability := TaskPanel.main_ability(role)
+		var rating := game.journal.rating(m.id, ability)
+		info.member = m
+		info.stranger = stranger
+		info.rating = "%s: %s (deine Einschätzung)" % [catalog.name_of(ability), Journal.RATING_LABELS[rating]] if rating >= 0 \
+				else "%s: noch nicht eingeschätzt" % catalog.name_of(ability)
+		info.problem = ""
+		if stranger:
+			info.action = "Anheuern und wählen (%d)" % m.price
+			info.problem = game.hire_problem(m)
+		else:
+			info.action = "Als %s wählen" % role.name
+			if m.exhausted:
+				info.problem = "Erschöpft – ruht bis morgen früh."
+		selected = c
+		camera.follow = c
+		camera.distance = clampf(camera.distance, 4.0, 9.0)
+	_card.show_pick(info, game.journal, catalog)
+
+
+func _cycle_pick(direction: int) -> void:
+	var list: Array = _picking.list
+	if list.is_empty():
+		return
+	_picking.index = posmod(int(_picking.index) + direction, list.size())
+	_show_pick()
+
+
+func _confirm_pick() -> void:
+	var list: Array = _picking.list
+	if list.is_empty():
+		return
+	var c: Creature = list[_picking.index]
+	if strangers.has(c):
+		if not hire(strangers[c]):
+			return
+	pick_creature(c)
+
+
+## Ort, an dem eine Aufgabe beginnt (für den Filter „In der Nähe“).
+func _task_place(task: TaskDef) -> Vector3:
+	var tp := TaskPlayer.new()
+	tp.world = self
+	tp.task = task
+	var p: Vector3 = Vector3(terrain.layout.spawn_pos.x, 0.0, terrain.layout.spawn_pos.y)
+	for step in task.steps:
+		if step.has("place"):
+			var r = tp._resolve(str(step.place))
+			p = r.global_position if r is Node3D else r
+			break
+	tp.free()
+	return p
+
+
 func _pick_at(pos: Vector2) -> void:
 	var c := creature_at(pos)
-	if c != null:
-		pick_creature(c)
+	if c == null:
+		return
+	# angetippte Kreatur in der Leiste zeigen (bestätigen mit dem Knopf)
+	if not _picking.list.has(c):
+		_picking.filter = "strangers" if strangers.has(c) else "group"
+		_refresh_pick_list()
+	_picking.index = maxi(0, _picking.list.find(c))
+	_show_pick()
 
 
 ## Kreatur für die gerade gewählte Rolle übernehmen. true = besetzt.
 func pick_creature(c: Creature) -> bool:
 	if strangers.has(c):
-		_banner.text = "%s gehört noch nicht zur Gruppe – erst anheuern. Wähle jemand anderen." % strangers[c].name
 		return false
 	var m: GroupMember = members.get(c)
 	if m == null or test_creatures.has(c):
 		return false
 	if m.exhausted:
-		_banner.text = "%s ist erschöpft und ruht bis morgen früh. Wähle jemand anderen." % m.name
 		return false
 	_task_panel.assign(_picking.role, m, _picking.task)
 	_end_pick()
@@ -730,6 +828,15 @@ func _on_task_finished(result: Dictionary, task: TaskDef, role_names: Dictionary
 	_result_panel.show_result(task, result, role_names, outcome, assignments, game.journal, catalog)
 
 
+## Kreatur oberhalb der Leiste halten: Drehpunkt im Bild so weit nach oben, wie die Leiste hoch ist.
+func _update_view_shift() -> void:
+	_info.visible = not _card.visible  # die Leiste zeigt den Namen ohnehin
+	if _card.visible:
+		camera.view_shift = _card.height_fraction() * VIEW_SHIFT_FACTOR
+	else:
+		camera.view_shift = 0.0
+
+
 ## Kamera zur Kreatur, die in der laufenden Aufgabe gerade am Zug ist.
 func focus_active() -> void:
 	if _player == null or _player.active == null or not is_instance_valid(_player.active):
@@ -754,6 +861,9 @@ func browse_order() -> Array[Creature]:
 
 ## Nächste (+1) bzw. vorherige (-1) Kreatur auswählen.
 func cycle_selection(direction: int) -> void:
+	if not _picking.is_empty():
+		_cycle_pick(direction)
+		return
 	var list := browse_order()
 	if list.is_empty():
 		return
@@ -1028,12 +1138,18 @@ func _build_hud() -> void:
 
 	_card = CreatureCard.new()
 	_card.visible = false
-	_card.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
-	_card.offset_left = -390
-	_card.offset_top = 60
-	_card.offset_bottom = -10
-	_card.offset_right = -10
-	_card.closed.connect(func(): _select(null))
+	_card.closed.connect(func():
+		if not _picking.is_empty():
+			_end_pick()
+		else:
+			_select(null))
+	_card.pick_confirmed.connect(_confirm_pick)
+	_card.filter_changed.connect(func(f):
+		_picking.filter = f
+		_refresh_pick_list()
+		_show_pick())
+	_card.visibility_changed.connect(_update_view_shift)
+	_card.layout_changed.connect(func(_e): _update_view_shift())
 	_card.hire_requested.connect(hire)
 	_card.cycle_requested.connect(cycle_selection)
 	ui.add_child(_card)
@@ -1056,14 +1172,6 @@ func _build_hud() -> void:
 		if not q.is_empty():
 			_question.open(game, q.a, q.b))
 	_question.closed.connect(func(): save_game())
-	_pick_cancel = UiUtil.button("Abbrechen", func(): _end_pick(), Vector2(170, 48))
-	_pick_cancel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
-	_pick_cancel.offset_left = -190
-	_pick_cancel.offset_top = -64
-	_pick_cancel.offset_right = -20
-	_pick_cancel.offset_bottom = -16
-	_pick_cancel.visible = false
-	ui.add_child(_pick_cancel)
 	_hire_panel = HirePanel.new()
 	_hire_panel.show_requested.connect(func(o):
 		var c := creature_of(o)
@@ -1214,3 +1322,17 @@ func debug_intro(step: int) -> void:
 func debug_bait_tree(i: int) -> void:
 	var t: FruitTree = terrain.fruit_trees[i]
 	place_bait(t.global_position + Vector3(0.5, 0, 0.5))
+
+
+## Rollenwahl für Rolle i der Aufgabe öffnen (Screenshots).
+func debug_pick(spec: String) -> void:
+	var p := spec.split(":")
+	var t := tasks.get_task(p[0])
+	debug_open("none")
+	game.intro_step = GameState.INTRO_DONE
+	_begin_pick(t, t.roles[int(p[1])].id)
+
+
+## Kreaturen-Leiste auf- oder zuklappen (Screenshots).
+func debug_card_expand(on: bool) -> void:
+	_card.set_expanded(on)

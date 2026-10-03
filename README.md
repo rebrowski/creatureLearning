@@ -45,8 +45,8 @@ Esc / Android-Zurück geht auch).
   kurzen Einführung und 6 Kreaturen (3 Arten, zwei davon Doppelgänger).
   - **Köder** (1 Beere) an Baum, Bach oder Boden legen: Kreaturen in der Nähe versuchen, die
     Beere zu holen, und zeigen dabei, was sie können.
-  - **Kreatur antippen** → Karte mit vermuteter Art, Einschätzung der Fähigkeiten, Beobachtungen.
-  - **Aufgaben** → Aufgabe wählen, Rollenplatz antippen, dann die Kreatur in der Welt antippen,
+  - **Kreatur antippen** → Leiste unten mit vermuteter Art, Einschätzung (▲ ausklappen), Beobachtungen; ‹ › blättert durch alle Kreaturen.
+  - **Aufgaben** → Aufgabe wählen, Rollenplatz antippen, in der Leiste unten mit ‹ › die Kreatur wählen (Filter Gruppe / Fremde / In der Nähe),
     starten. Jeder Versuch kostet Proviant, der erste Versuch zahlt doppelt, wer scheitert, ist bis
     morgen erschöpft. 9 Aufgaben werden nacheinander frei.
   - Nach jeder Aufgabe eine **Artfrage** („dieselbe Art?“); richtig beantwortet füllt sie das

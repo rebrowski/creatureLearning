@@ -117,3 +117,14 @@ Ziel: Beobachten und Schließen muss sich mehr lohnen als Durchprobieren.
 - Auswertung prüft die eigene Einschätzung; Artfragen und Bestimmungsbuch.
 - Journal verschlankt (vermutete Art + Einschätzung).
 - Geräusche und Vibration (Optionen → Ton); „Warten …“ statt Wetter-Knopf.
+
+## M9 – Bedienung: Leiste unten, Rollenwahl durch Blättern (0.9.0)
+- Kreaturen-Karte als Leiste am unteren Rand (eingeklappt 30 %, ▲ ausgeklappt 52 % der Höhe);
+  die Kamera rückt die gewählte Kreatur nach oben (`OrbitCamera.view_shift`).
+- Rollenwahl: Rollenplatz antippen → Leiste mit ‹ › durch die Kandidaten, Kamera fliegt hin,
+  „Als … wählen“ bzw. „Anheuern und wählen“; Filter Gruppe / Fremde / In der Nähe (15 m um den
+  Ort der Aufgabe). Antippen in der Welt springt in der Leiste zur Kreatur.
+
+## M10 – Rivalen und Saisons (geplant, 1.0)
+Entscheidungen: Saisons mit Schlusswertung; Rivalen dürfen Fremde anheuern (eine gebrauchte Art
+kommt immer nach); Schwierigkeit wählbar und adaptiv (nach dominanten Saisonsiegen eine Stufe höher).

@@ -218,3 +218,33 @@ func test_wait_jumps_to_evening() -> void:
 	await get_tree().create_timer(2.0).timeout
 	assert_almost_eq(world.day_night.hour, world.EVENING_HOUR, 0.2)
 	world.day_night.hour = 10.0
+
+
+func test_pick_by_browsing_with_filters() -> void:
+	var t: TaskDef = world.tasks.tasks[0]
+	world._begin_pick(t, t.roles[0].id)
+	assert_true(world._card.visible)
+	assert_eq(world._card.mode, "pick")
+	assert_eq(world._picking.list.size(), world.game.members.size(), "Filter Gruppe: alle Mitglieder")
+	var first: Creature = world._picking.list[0]
+	world.cycle_selection(1)
+	assert_ne(world._picking.list[world._picking.index], first, "‹ › blättert in der Rollenwahl")
+	assert_eq(world.camera.follow, world._picking.list[world._picking.index], "Kamera folgt")
+	world._card.filter_changed.emit("strangers")
+	for c in world._picking.list:
+		assert_true(world.strangers.has(c), "Filter Fremde")
+	world._card.filter_changed.emit("group")
+	world._confirm_pick()
+	assert_true(world._picking.is_empty())
+	assert_true(world._task_panel._choice.has(t.roles[0].id), "Rolle besetzt")
+	world._task_panel.visible = false
+
+
+func test_card_sits_at_bottom_and_shifts_camera() -> void:
+	world._select(world.creatures[0])
+	await get_tree().process_frame
+	var vp: Vector2 = world._card.get_viewport_rect().size
+	assert_gt(world._card.get_global_rect().position.y, vp.y * 0.5, "Leiste unten")
+	assert_gt(world.camera.view_shift, 0.0, "Kreatur rückt nach oben")
+	world._select(null)
+	assert_eq(world.camera.view_shift, 0.0)
