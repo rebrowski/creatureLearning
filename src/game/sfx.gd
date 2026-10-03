@@ -24,8 +24,14 @@ func _ready() -> void:
 			_streams[n] = s
 
 
-func play(sound: String, at: Variant = null) -> void:
+## source: Kreatur, die das Geräusch macht – dann nur hörbar, wenn sie im Fokus
+## ist (ausgewählt, verfolgt oder in der Aufgabe am Zug) und im Bild
+## (Szene: is_sound_focus(source)). So lässt sich jedes Geräusch zuordnen.
+func play(sound: String, at: Variant = null, source: Node = null) -> void:
 	if not enabled or not _streams.has(sound):
+		return
+	var scene0 := get_tree().current_scene
+	if source != null and scene0 != null and scene0.has_method("is_sound_focus") and not scene0.is_sound_focus(source):
 		return
 	var now := Time.get_ticks_msec()
 	if now - int(_last_played.get(sound, -1000)) < 90:

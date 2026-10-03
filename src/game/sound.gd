@@ -9,10 +9,11 @@ static func _node() -> Node:
 	return tree.root.get_node_or_null("Sfx") if tree != null else null
 
 
-static func play(sound: String, at: Variant = null) -> void:
+## source: Kreatur, die das Geräusch macht (nur hörbar, wenn sie im Fokus ist).
+static func play(sound: String, at: Variant = null, source: Node = null) -> void:
 	var n := _node()
 	if n != null:
-		n.play(sound, at)
+		n.play(sound, at, source)
 
 
 static func vibrate(ms := 40) -> void:

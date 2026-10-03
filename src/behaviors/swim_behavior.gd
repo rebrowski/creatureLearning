@@ -125,7 +125,7 @@ func _enter() -> void:
 	_flow = l.stream_direction(mid.x, mid.z)
 	creature.scripted = true
 	if _mode != "hesitate":
-		Sound.play("splash", _a.lerp(_b, 0.3))
+		Sound.play("splash", _a.lerp(_b, 0.3), creature)
 	if not _wade and _mode != "hesitate":
 		creature.locomotion.foot_override = _paddle
 		creature.locomotion.pose_pitch = 0.1 + (1.0 - _skill) * 0.25  # schwache Schwimmer: Kopf hoch, Hinterteil tief
@@ -184,7 +184,7 @@ func _lose_item() -> void:
 	if item == null or not is_instance_valid(item):
 		return
 	creature.held_item = null
-	Sound.play("splash", item.global_position)
+	Sound.play("splash", item.global_position, creature)
 	BehaviorEffects.float_away(item, brain.layout(), _flow, 4.0)
 
 

@@ -42,6 +42,8 @@ const SKIP_SPEED := 6.0
 ## Rivalen streifen in diesem Umkreis um ihr Lager.
 const RIVAL_ROAM := 9.0
 const TICKER_LINES := 3
+## Geräusche der Kreatur im Fokus sind bis zu dieser Kameradistanz hörbar (Meter).
+const SOUND_DISTANCE := 30.0
 const TICKER_SECONDS := 9.0
 ## Rollenwahl-Filter „In der Nähe“: Umkreis um den Ort der Aufgabe (Meter).
 const NEAR_RADIUS := 15.0
@@ -108,6 +110,7 @@ var _skipping := false
 var _credits: Label
 var _idle := 0.0
 var _rival_rng := RandomNumberGenerator.new()
+var _web_save_cb: JavaScriptObject
 var _score: Label
 var _season_label: Label
 var _ticker: VBoxContainer
@@ -185,6 +188,8 @@ func _ready() -> void:
 			_intro_next())
 	if game.intro_step < GameState.INTRO_DONE:
 		_intro_show.call_deferred()
+	_resume_pending_task.call_deferred()
+	_hook_web_save()
 
 
 func _exit_tree() -> void:
@@ -194,9 +199,24 @@ func _exit_tree() -> void:
 
 
 func _notification(what: int) -> void:
-	# Android beendet Apps im Hintergrund ohne Vorwarnung – beim Pausieren speichern
-	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+	# Android/iOS beenden Apps im Hintergrund ohne Vorwarnung – beim Pausieren speichern
+	if what in [NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_WM_CLOSE_REQUEST, NOTIFICATION_APPLICATION_FOCUS_OUT,
+			NOTIFICATION_WM_WINDOW_FOCUS_OUT]:
 		save_game()
+
+
+## Web-App: speichern, sobald die Seite verborgen wird (App-Wechsel, Bildschirmsperre)
+## – iOS lädt Web-Apps danach oft neu.
+func _hook_web_save() -> void:
+	if not OS.has_feature("web"):
+		return
+	_web_save_cb = JavaScriptBridge.create_callback(func(_args): save_game())
+	var doc = JavaScriptBridge.get_interface("document")
+	var win = JavaScriptBridge.get_interface("window")
+	if doc != null:
+		doc.addEventListener("visibilitychange", _web_save_cb)
+	if win != null:
+		win.addEventListener("pagehide", _web_save_cb)
 
 
 func save_game() -> void:
@@ -781,6 +801,13 @@ func _debug_text(c: Creature) -> String:
 func start_task(task: TaskDef, assignments: Dictionary) -> void:
 	var attempt: int = game.tasks.get(task.id, {}).get("attempts", 0)
 	var result := TaskSimulator.simulate(task, assignments, catalog, attempt, _crossing_depth(task))
+	# Ergebnis sofort sichern: wird die App während der Wiedergabe beendet
+	# (iOS beendet Web-Apps im Hintergrund), wertet der nächste Start es aus
+	var ids := {}
+	for role_id in assignments:
+		ids[role_id] = assignments[role_id].id
+	game.pending_task = {"task": task.id, "assignments": ids, "result": _json_safe(result)}
+	save_game()
 	var actors := {}
 	var names := {}
 	var role_names := {}
@@ -807,6 +834,34 @@ func start_task(task: TaskDef, assignments: Dictionary) -> void:
 	_player.play(self, task, result, actors, names)
 
 
+static func _json_safe(result: Dictionary) -> Dictionary:
+	var r := result.duplicate(true)
+	r.hints = Array(r.get("hints", []))
+	return r
+
+
+## Beim Start: eine unterbrochene Aufgabe auswerten (Ergebnis stand schon fest).
+func _resume_pending_task() -> void:
+	var p := game.pending_task
+	if p.is_empty():
+		return
+	var task := tasks.get_task(str(p.get("task", "")))
+	var assignments := {}
+	var role_names := {}
+	for role_id in p.get("assignments", {}):
+		var m := game.member(str(p.assignments[role_id]))
+		if m != null:
+			assignments[role_id] = m
+			role_names[role_id] = m.name
+	if task == null or assignments.size() != task.roles.size():
+		game.pending_task = {}
+		return
+	var result: Dictionary = p.get("result", {})
+	result.hints = PackedStringArray(result.get("hints", []))
+	_show_note("Die Aufgabe „%s“ wurde unterbrochen – hier ist ihr Ergebnis." % task.name, 4.0)
+	_on_task_finished(result, task, role_names, assignments)
+
+
 func creature_of(m: GroupMember) -> Creature:
 	for c in members:
 		if members[c] == m:
@@ -827,6 +882,7 @@ func _on_task_finished(result: Dictionary, task: TaskDef, role_names: Dictionary
 		if not e.get("success", false) and not e.get("skipped", false):
 			failed.append(assignments[role_id])
 	var outcome := game.record_task(task, result.success, failed)
+	game.pending_task = {}
 	sync_sites()
 	weather.auto_change = true
 	for o in outcome.new_offers:
@@ -834,7 +890,8 @@ func _on_task_finished(result: Dictionary, task: TaskDef, role_names: Dictionary
 	if result.success:
 		_ensure_needed_offer()
 	save_game()
-	_player.queue_free()
+	if _player != null:
+		_player.queue_free()
 	_player = null
 	_banner.visible = false
 	_fast.visible = false
@@ -850,6 +907,21 @@ func _on_task_finished(result: Dictionary, task: TaskDef, role_names: Dictionary
 	_update_tags()
 	_idle = 0.0
 	_result_panel.show_result(task, result, role_names, outcome, assignments, game.journal, catalog)
+
+
+## Geräusche einer Kreatur sind nur hörbar, wenn sie im Fokus ist (ausgewählt,
+## verfolgt oder in der Aufgabe am Zug), nicht zu weit weg und im Bild.
+func is_sound_focus(source: Node) -> bool:
+	var c := source as Creature
+	if c == null or not c.visible:
+		return false
+	var focused := c == selected or c == camera.follow or (_player != null and c == _player.active)
+	if not focused:
+		return false
+	if camera.is_position_behind(c.global_position) or c.global_position.distance_to(camera.global_position) > SOUND_DISTANCE:
+		return false
+	var p := camera.unproject_position(c.global_position)
+	return get_viewport().get_visible_rect().has_point(p)
 
 
 ## Kreatur oberhalb der Leiste halten: Drehpunkt im Bild so weit nach oben, wie die Leiste hoch ist.

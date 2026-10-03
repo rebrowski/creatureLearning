@@ -9,10 +9,10 @@ static var _ring_mesh: TorusMesh
 static var _disc_mesh: CylinderMesh
 
 
-static func dirt_burst(parent: Node, pos: Vector3, strength: float) -> void:
+static func dirt_burst(parent: Node, pos: Vector3, strength: float, source: Node = null) -> void:
 	if strength <= 0.02:
 		return
-	Sound.play("dig", pos)
+	Sound.play("dig", pos, source)
 	var p := CPUParticles3D.new()
 	p.one_shot = true
 	p.amount = int(4 + strength * 14)
