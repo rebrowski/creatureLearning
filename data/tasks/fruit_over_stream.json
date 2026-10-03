@@ -5,6 +5,7 @@
   "description": "Am großen Baum hängt eine reife Frucht hoch oben. Einer holt sie herunter, ein anderer bringt sie über den Bach ans andere Ufer.",
   "order": 2,
   "reward": 30,
+  "site": "fruit_tree_0",
   "unlock_after": "fruit_from_tree",
   "context": {
     "hour": 10.0,

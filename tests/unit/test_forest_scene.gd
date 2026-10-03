@@ -86,7 +86,8 @@ func test_start_group_spawned_on_land() -> void:
 	var group: Dictionary = JsonLoader.read(GameState.GROUP_PATH).data
 	assert_eq(world.members.size(), group.members.size())
 	assert_eq(world.strangers.size(), world.game.offers.size(), "Fremde am Waldrand")
-	assert_eq(world.creatures.size(), world.members.size() + world.strangers.size())
+	assert_eq(world.rival_creatures.size(), world.game.rivals[0].members.size(), "Rivalen im Lager")
+	assert_eq(world.creatures.size(), world.members.size() + world.strangers.size() + world.rival_creatures.size())
 	for c in world.creatures:
 		var zone: String = world.terrain.layout.zone_at(c.global_position.x, c.global_position.z)
 		assert_true(zone in ["clearing", "forest", "bank", "tree", "rock"], "%s steht in %s" % [c.name, zone])
@@ -248,3 +249,47 @@ func test_card_sits_at_bottom_and_shifts_camera() -> void:
 	assert_gt(world.camera.view_shift, 0.0, "Kreatur rückt nach oben")
 	world._select(null)
 	assert_eq(world.camera.view_shift, 0.0)
+
+
+func test_rival_attempt_and_hire_events() -> void:
+	var r: RivalState = world.game.rivals[0]
+	var t: TaskDef = world.tasks.get_task("fruit_from_tree")
+	var climber: GroupMember = r.members[0]
+	r.new_morning()
+	world.game.refill_sites()
+	r.set_belief(climber.id, "climb", 0.95)
+	var stock_before: int = world.game.site_stock(t)
+	var ev := RivalAI.act(world.game, r, world.tasks, world.catalog, RandomNumberGenerator.new())
+	assert_eq(ev.type, "task", "zuversichtliche Rivalen versuchen eine Aufgabe")
+	world._on_rival_event(r, ev)
+	if ev.result.success and ev.task.site == t.site:
+		assert_eq(world.game.site_stock(t), stock_before - 1, "verbraucht den Vorrat")
+	assert_gt(world._ticker.get_child_count(), 0, "Meldung oben rechts")
+	# Anheuern: ein Fremder wird zum Rivalen, ein neuer kommt nach
+	r.credits = 500
+	var hire := RivalAI._hire(world.game, r, world.catalog, RandomNumberGenerator.new())
+	assert_eq(hire.type, "hire")
+	world._on_rival_event(r, hire)
+	assert_true(world.rival_creatures.has(world.creature_of(hire.member)))
+	assert_eq(world.game.offers.size(), int(GameState.progression().offers), "Fremde werden aufgefüllt")
+	world.sync_sites()
+
+
+func test_season_rollover() -> void:
+	var g: GameState = world.game
+	g.points = 120
+	g.rivals[0].points = 60
+	g.season.day = g.season.days
+	world._on_new_day()
+	assert_true(world._season_panel.visible, "Schlusswertung")
+	var res: Dictionary = g.season.history[-1]
+	assert_true(res.won)
+	assert_eq(res.suggest, "ehrgeizig", "deutlicher Sieg: stärkere Rivalen vorschlagen")
+	world._season_panel.visible = false
+	world._start_next_season("ehrgeizig")
+	assert_eq(int(g.season.number), 2)
+	assert_eq(g.points, 0)
+	assert_eq(g.rivals[0].points, 0)
+	assert_eq(g.difficulty, "ehrgeizig")
+	assert_eq(world.rival_creatures.size(), g.rivals[0].members.size(), "neue Rivalen im Lager")
+	world._start_next_season("normal")

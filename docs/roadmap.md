@@ -125,6 +125,14 @@ Ziel: Beobachten und Schließen muss sich mehr lohnen als Durchprobieren.
   „Als … wählen“ bzw. „Anheuern und wählen“; Filter Gruppe / Fremde / In der Nähe (15 m um den
   Ort der Aufgabe). Antippen in der Welt springt in der Leiste zur Kreatur.
 
-## M10 – Rivalen und Saisons (geplant, 1.0)
+## M10 – Rivalen und Saisons (1.0.0)
 Entscheidungen: Saisons mit Schlusswertung; Rivalen dürfen Fremde anheuern (eine gebrauchte Art
 kommt immer nach); Schwierigkeit wählbar und adaptiv (nach dominanten Saisonsiegen eine Stufe höher).
+- Knappe Fundstellen (`data/world/sites.json`): Früchte, Trüffel, Steine mit Vorrat, nachwachsend.
+- Rivalen „Moosläufer“ (`data/game/rivals.json`, `RivalState`, `RivalAI`): eigenes Lager, eigene
+  Arten, faire Steuerung über eigene Schätzungen, Lernen aus Versuchen und Beobachten, sichtbare
+  Versuche in der Welt, Anheuern von Fremden.
+- Saison = 7 Spieltage, Punktestand oben rechts mit Meldungen der Rivalen, Schlusswertung mit
+  adaptivem Vorschlag (gemütlich / normal / ehrgeizig; Optionen → Gegner).
+- Simulierte Saison (Startgruppe der Rivalen, ohne Spieler): gemütlich ≈ 40–175, normal ≈ 155–205,
+  ehrgeizig ≈ 310–360 Punkte – Testwerte zum Abstimmen nach Spieltests.

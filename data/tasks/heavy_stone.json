@@ -5,6 +5,7 @@
   "description": "Für das Lager wird ein großer Stein gebraucht. Wer ist stark genug, ihn zu schleppen?",
   "order": 5,
   "reward": 25,
+  "site": "stones",
   "unlock_after": "fruit_over_stream",
   "context": {
     "hour": 11.0,

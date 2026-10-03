@@ -1,0 +1,39 @@
+{
+  "format": "sites/1",
+  "notes": "Fundstellen mit begrenztem Vorrat. Eine gelungene Aufgabe (von dir oder den Rivalen) verbraucht 1 Einheit ihrer Fundstelle (Feld 'site' in der Aufgabe). Jeden Morgen wachsen 'regrow' Einheiten nach, höchstens bis 'stock'. 'tree': Index des Fruchtbaums, dessen sichtbare Früchte den Vorrat zeigen.",
+  "sites": {
+    "fruit_tree_0": {
+      "name": "großer Baum",
+      "unit": "Früchte",
+      "stock": 4,
+      "regrow": 2,
+      "tree": 0
+    },
+    "fruit_tree_1": {
+      "name": "Baum am Hang",
+      "unit": "Früchte",
+      "stock": 3,
+      "regrow": 2,
+      "tree": 1
+    },
+    "fruit_tree_2": {
+      "name": "Baum am Felsen",
+      "unit": "Früchte",
+      "stock": 5,
+      "regrow": 2,
+      "tree": 2
+    },
+    "truffles": {
+      "name": "Lichtung",
+      "unit": "Trüffel",
+      "stock": 3,
+      "regrow": 1
+    },
+    "stones": {
+      "name": "Steinhaufen",
+      "unit": "Steine",
+      "stock": 2,
+      "regrow": 1
+    }
+  }
+}

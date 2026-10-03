@@ -9,6 +9,7 @@ const DEFAULT_PATH := "user://save/savegame.json"
 const GROUP_PATH := "res://data/world/start_group.json"
 const NAMES_PATH := "res://data/game/names.json"
 const PROGRESSION_PATH := "res://data/game/progression.json"
+const SITES_PATH := "res://data/world/sites.json"
 
 var schema: GenomeSchema
 var taxonomy: Taxonomy
@@ -24,6 +25,19 @@ var recruit_count := 0
 var credits := 0
 ## Fremde am Waldrand, die man anheuern kann (Name "Fremdling N", Preis in GroupMember.price).
 var offers: Array[GroupMember] = []
+## Fundstellen: ID -> verbleibender Vorrat (siehe data/world/sites.json)
+var sites: Dictionary = {}
+## Saison: {"number", "day", "days", "history": [{number, player, rival, won, difficulty}]}
+var season: Dictionary = {}
+## Schwierigkeit der Rivalen (Schlüssel in rivals.json "difficulties")
+var difficulty := "normal"
+## Punkte der laufenden Saison (verdiente Belohnungen + Artfragen)
+var points := 0
+## Versuche der laufenden Saison (für die Belohnungsfaktoren): task_id -> {attempts, successes}
+var season_tasks: Dictionary = {}
+var rivals: Array[RivalState] = []
+## vergangene Spielzeit in Stunden (für die Taktung der Rivalen)
+var game_hours := 0.0
 ## Bestimmungsbuch: Art-ID -> true, sobald eine Artfrage zu ihr richtig beantwortet wurde
 var identified: Dictionary = {}
 ## schon gestellte Artfragen: "id_a|id_b" -> true
@@ -55,6 +69,7 @@ static func new_game(group_path: String = GROUP_PATH) -> GameState:
 		gs.members.append(GroupMember.from_individual(ind, gs._next_name()))
 	var cfg := progression()
 	gs.credits = int(cfg.get("start_credits", 40))
+	gs.start_season(1)
 	gs.refill_offers(cfg)
 	return gs
 
@@ -92,7 +107,9 @@ func to_dict() -> Dictionary:
 	return {"format": FORMAT, "taxonomy": taxonomy.to_dict(), "members": list, "journal": journal.to_dict(),
 			"tasks": tasks, "hour": hour, "weather": weather, "recruit_count": recruit_count,
 			"credits": credits, "offers": offer_list, "intro_step": intro_step,
-			"identified": identified.keys(), "asked_pairs": asked_pairs.keys()}
+			"identified": identified.keys(), "asked_pairs": asked_pairs.keys(), "sites": sites,
+			"season": season, "difficulty": difficulty, "points": points, "season_tasks": season_tasks,
+			"rivals": rivals.map(func(r): return r.to_dict()), "game_hours": game_hours}
 
 
 func _from_dict(d: Variant) -> void:
@@ -122,6 +139,21 @@ func _from_dict(d: Variant) -> void:
 		identified[str(sp)] = true
 	for k in d.get("asked_pairs", []):
 		asked_pairs[str(k)] = true
+	difficulty = str(d.get("difficulty", "normal"))
+	if d.has("season"):
+		season = d.season
+		points = int(d.get("points", 0))
+		season_tasks = d.get("season_tasks", {})
+		game_hours = float(d.get("game_hours", 0.0))
+		for rd in d.get("rivals", []):
+			rivals.append(RivalState.from_dict(schema, rd))
+	else:
+		start_season(1)  # ältere Spielstände: erste Saison beginnt jetzt
+	refill_sites()
+	var saved_sites: Dictionary = d.get("sites", {})
+	for k in saved_sites:
+		if sites.has(k):
+			sites[k] = int(saved_sites[k])
 	for od in d.get("offers", []):
 		offers.append(GroupMember.from_dict(schema, od))
 	if not d.has("offers"):
@@ -143,6 +175,10 @@ func display_name(id: String) -> String:
 	for o in offers:
 		if o.id == id:
 			return o.name
+	for r in rivals:
+		for rm in r.members:
+			if rm.id == id:
+				return "%s (%s)" % [rm.name, r.name]
 	return "ein %s" % UiUtil.STRANGER
 
 
@@ -165,7 +201,7 @@ func task_unlocked(task: TaskDef) -> bool:
 func reward_for(task: TaskDef, cfg: Dictionary = {}) -> int:
 	if cfg.is_empty():
 		cfg = progression()
-	var st: Dictionary = tasks.get(task.id, {})
+	var st: Dictionary = season_tasks.get(task.id, {})
 	if st.get("successes", 0) > 0:
 		return int(roundf(task.reward * float(cfg.get("repeat_reward_factor", 0.5))))
 	var factors: Array = cfg.get("first_try_factors", [1.0])
@@ -188,12 +224,16 @@ func record_task(task: TaskDef, success: bool, failed: Array = []) -> Dictionary
 	var cfg := progression()
 	var cost := attempt_cost(cfg)
 	var earned := reward_for(task, cfg) if success else 0
-	if not tasks.has(task.id):
-		tasks[task.id] = {"attempts": 0, "successes": 0}
-	tasks[task.id].attempts += 1
-	if success:
-		tasks[task.id].successes += 1
+	for book in [tasks, season_tasks]:
+		if not book.has(task.id):
+			book[task.id] = {"attempts": 0, "successes": 0}
+		book[task.id].attempts = int(book[task.id].attempts) + 1
+		if success:
+			book[task.id].successes = int(book[task.id].successes) + 1
+	if success and not consume_site(task.site):
+		earned = 0  # nichts mehr zu holen (z. B. Rivalen waren schneller)
 	credits += earned - cost
+	points += earned
 	var tired: Array[GroupMember] = []
 	for m in failed:
 		if m is GroupMember and members.has(m):
@@ -202,8 +242,120 @@ func record_task(task: TaskDef, success: bool, failed: Array = []) -> Dictionary
 	return {"earned": earned, "cost": cost, "new_offers": refill_offers(cfg), "exhausted": tired}
 
 
-## Neuer Morgen: alle Erschöpften sind wieder fit. Rückgabe: wie viele.
+# --- Saisons und Rivalen --------------------------------------------------------
+
+## IDs aller Kreaturen im Spiel (Gruppe, Fremde, Rivalen) – für eindeutige neue IDs.
+func all_creature_ids() -> Dictionary:
+	var ids := {}
+	for m in members + offers:
+		ids[m.id] = true
+	for r in rivals:
+		for m in r.members:
+			ids[m.id] = true
+	return ids
+
+
+## Neue Saison: Punkte auf 0, Fundstellen voll, Rivalen frisch (eigene Gruppe,
+## Journal, Guthaben und freigeschaltete Aufgaben bleiben).
+func start_season(number: int) -> void:
+	var cfg := RivalState.config()
+	var history: Array = season.get("history", [])
+	season = {"number": number, "day": 1, "days": int(cfg.get("season_days", 7)), "history": history}
+	points = 0
+	season_tasks = {}
+	refill_sites()
+	rivals.clear()
+	if factory != null:
+		for g in cfg.get("groups", []):
+			var r := RivalState.create(g, factory)
+			r.next_action = game_hours + float(RivalState.difficulty(difficulty).get("interval_hours", 2.0))
+			rivals.append(r)
+
+
+## Ein Spieltag ist vorbei. true = die Saison ist zu Ende.
+func advance_day() -> bool:
+	season.day = int(season.get("day", 1)) + 1
+	for r in rivals:
+		r.new_morning()
+	return int(season.day) > int(season.get("days", 7))
+
+
+## Saison auswerten und im Verlauf speichern. Vorschlag für die nächste Saison:
+## eine Stufe schwerer bei deutlichem Sieg, leichter bei deutlicher Niederlage.
+## Rückgabe: {"player", "rival", "rival_name", "won", "suggest": Schlüssel oder ""}
+func finish_season() -> Dictionary:
+	var cfg := RivalState.config()
+	var best := 0
+	var best_name := ""
+	for r in rivals:
+		if r.points >= best:
+			best = r.points
+			best_name = r.name
+	var won := points > best
+	var margin := float(cfg.get("adaptive_margin", 0.3))
+	var order: Array = cfg.get("order", ["gemütlich", "normal", "ehrgeizig"])
+	var i := order.find(difficulty)
+	var suggest := ""
+	if won and points >= best * (1.0 + margin) and i >= 0 and i < order.size() - 1:
+		suggest = order[i + 1]
+	elif not won and best >= points * (1.0 + margin) and i > 0:
+		suggest = order[i - 1]
+	var res := {"number": season.get("number", 1), "player": points, "rival": best, "rival_name": best_name,
+			"won": won, "suggest": suggest, "difficulty": difficulty}
+	var history: Array = season.get("history", [])
+	history.append(res)
+	season.history = history
+	return res
+
+
+# --- Fundstellen ------------------------------------------------------------------
+
+static func sites_config() -> Dictionary:
+	return _read(SITES_PATH).get("sites", {})
+
+
+## Alle Fundstellen auf vollen Vorrat (neues Spiel, neue Saison).
+func refill_sites() -> void:
+	var cfg := sites_config()
+	for id in cfg:
+		sites[id] = int(cfg[id].get("stock", 1))
+
+
+## Vorrat der Fundstelle einer Aufgabe (-1 = unbegrenzt).
+func site_stock(task: TaskDef) -> int:
+	if task.site == "" or not sites.has(task.site):
+		return -1
+	return int(sites[task.site])
+
+
+## Eine Einheit verbrauchen (nach einem Erfolg). false = nichts mehr da.
+func consume_site(site_id: String) -> bool:
+	if site_id == "" or not sites.has(site_id):
+		return true
+	if sites[site_id] <= 0:
+		return false
+	sites[site_id] -= 1
+	return true
+
+
+## Text für die Aufgabenwahl, z. B. „Am großen Baum hängen noch 2 Früchte.“ ("" = unbegrenzt).
+func site_text(task: TaskDef) -> String:
+	var stock := site_stock(task)
+	if stock < 0:
+		return ""
+	var c: Dictionary = sites_config().get(task.site, {})
+	if stock == 0:
+		return "%s: nichts mehr da – morgen wachsen %d %s nach." % [str(c.get("name", task.site)).capitalize(), int(c.get("regrow", 1)), c.get("unit", "")]
+	return "%s: noch %d %s." % [str(c.get("name", task.site)).capitalize(), stock, c.get("unit", "")]
+
+
+## Neuer Morgen: alle Erschöpften sind wieder fit, Fundstellen wachsen nach.
+## Rückgabe: wie viele Erschöpfte sich erholt haben.
 func new_morning() -> int:
+	var cfg := sites_config()
+	for id in sites:
+		var c: Dictionary = cfg.get(id, {})
+		sites[id] = mini(int(c.get("stock", sites[id])), int(sites[id]) + int(c.get("regrow", 1)))
 	var n := 0
 	for m in members:
 		if m.exhausted:
@@ -261,6 +413,7 @@ func answer_species_question(a: GroupMember, b: GroupMember, said_same: bool) ->
 	if res.correct:
 		res.reward = int(progression().get("species_reward", 10))
 		credits += res.reward
+		points += res.reward
 		for sp in [a.species_id, b.species_id]:
 			if not identified.has(sp):
 				identified[sp] = true
@@ -366,6 +519,7 @@ func recruit(cfg: Dictionary = {}, species_id := "") -> GroupMember:
 	var counts := {}
 	for m in members + offers:
 		counts[m.species_id] = counts.get(m.species_id, 0) + 1
+	var taken := all_creature_ids()
 	var candidates: Array[Taxon] = taxonomy.species()
 	if candidates.is_empty():
 		return null
@@ -402,6 +556,8 @@ func recruit(cfg: Dictionary = {}, species_id := "") -> GroupMember:
 	for m in members + offers:
 		if m.species_id == chosen.id:
 			index = maxi(index, m.index + 1)
+	while taken.has("%s#%d" % [chosen.id, index]):
+		index += 1
 	var ind := factory.create_individual(chosen.id, index, "", "", float(cfg.get("juvenile_chance", 0.15)))
 	recruit_count += 1
 	var gm := GroupMember.from_individual(ind, "%s %d" % [UiUtil.STRANGER, recruit_count], total_successes())

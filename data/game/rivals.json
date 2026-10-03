@@ -1,0 +1,103 @@
+{
+  "format": "rivals/1",
+  "notes": "Rivalen-Gruppe(n): spielen nach denselben Regeln (Einsatz, Belohnung, Erschöpfung, knappe Fundstellen) und kennen die wahren Fähigkeiten ebenfalls nicht – sie schätzen sie (beliefs) und lernen aus eigenen Versuchen und Beobachtungen. Schwierigkeit: interval_hours = Spielstunden zwischen zwei Aktionen, learn = Lernrate (0..1), risk = wie knapp unter der Schwelle sie trotzdem antreten, hire_chance = Neigung zum Anheuern, noise = Streuung beim Beobachten. Saison: days Spieltage; adaptive_margin = Vorsprung (Anteil), ab dem eine stärkere bzw. schwächere Stufe vorgeschlagen wird. tasks_per_day: höchstens so viele Aufgaben pro Tag, jede Aufgabe höchstens einmal pro Tag; die Rivalen folgen derselben Freischaltungs-Kette. start_belief: Anfangsschätzung jeder Fähigkeit (vorsichtig). active_hours: nur in diesen Stunden handeln sie.",
+  "season_days": 7,
+  "adaptive_margin": 0.3,
+  "difficulties": {
+    "gemütlich": {
+      "label": "gemütlich",
+      "interval_hours": 2.5,
+      "learn": 0.5,
+      "risk": 0.02,
+      "hire_chance": 0.25,
+      "noise": 0.2,
+      "tasks_per_day": 1
+    },
+    "normal": {
+      "label": "normal",
+      "interval_hours": 2.0,
+      "learn": 0.7,
+      "risk": 0.06,
+      "hire_chance": 0.4,
+      "noise": 0.12,
+      "tasks_per_day": 2
+    },
+    "ehrgeizig": {
+      "label": "ehrgeizig",
+      "interval_hours": 1.2,
+      "learn": 0.85,
+      "risk": 0.1,
+      "hire_chance": 0.55,
+      "noise": 0.06,
+      "tasks_per_day": 2
+    }
+  },
+  "order": [
+    "gemütlich",
+    "normal",
+    "ehrgeizig"
+  ],
+  "groups": [
+    {
+      "id": "moos",
+      "name": "Moosläufer",
+      "color": [
+        0.78,
+        0.6,
+        1.0
+      ],
+      "camp": [
+        2,
+        18
+      ],
+      "start_credits": 40,
+      "members": [
+        {
+          "species": "tessella_maculata",
+          "index": 100
+        },
+        {
+          "species": "tessella_maculata",
+          "index": 101
+        },
+        {
+          "species": "talpides_robustus",
+          "index": 100
+        },
+        {
+          "species": "talpides_robustus",
+          "index": 101
+        },
+        {
+          "species": "saltator_agilis",
+          "index": 100
+        },
+        {
+          "species": "saltator_agilis",
+          "index": 101
+        }
+      ],
+      "names": [
+        "Arko",
+        "Bela",
+        "Cimo",
+        "Dara",
+        "Eyko",
+        "Fenn",
+        "Gaja",
+        "Hux",
+        "Isko",
+        "Jala",
+        "Koru",
+        "Lemi",
+        "Mavo",
+        "Nira"
+      ]
+    }
+  ],
+  "start_belief": 0.3,
+  "active_hours": [
+    7,
+    21
+  ]
+}

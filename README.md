@@ -52,7 +52,10 @@ Esc / Android-Zurück geht auch).
   - Nach jeder Aufgabe eine **Artfrage** („dieselbe Art?“); richtig beantwortet füllt sie das
     **Bestimmungsbuch** im Journal.
   - **Anheuern**: Fremde am Waldrand beobachten und für Beeren in die Gruppe holen.
-  - **Optionen**: Tempo, Warten bis Abend/Morgen, Namen, Textgröße, Ton, Debug.
+  - **Rivalen**: Die Moosläufer sammeln am anderen Ufer um dieselben (knappen) Vorräte; oben rechts
+    stehen Punktestand und ihre Aktionen. Eine Saison dauert 7 Spieltage, danach Schlusswertung
+    mit Vorschlag für die nächste Schwierigkeit.
+  - **Optionen**: Tempo, Warten bis Abend/Morgen, Gegner (Schwierigkeit), Namen, Textgröße, Ton, Debug.
   Der Spielstand wird automatisch gespeichert.
 - **Kreaturen-Labor** (`scenes/debug/creature_lab.tscn`, M2): alle Baupläne laufen als 3D-Kreaturen
   mit IK über unebenen Boden. Ziehen = drehen, Pinch/Mausrad = zoomen, zwei Finger/rechte

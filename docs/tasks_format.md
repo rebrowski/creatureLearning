@@ -123,6 +123,32 @@ Nach jeder Aufgabe fragt das Spiel: „Gehören A und B zur selben Art?“ – z
 dazugehört. Die Auswertung einer Aufgabe vergleicht außerdem das Ergebnis jeder Rolle mit der
 eigenen Einschätzung („passt / passt nicht zu deiner Einschätzung“).
 
+## Fundstellen (`data/world/sites.json`)
+
+Aufgaben mit `site` verbrauchen bei Erfolg eine Einheit ihrer Fundstelle (Früchte am Baum,
+Trüffel, Steine) – egal ob du oder die Rivalen sie lösen. Ist nichts mehr da, lässt sich die Aufgabe
+erst am nächsten Morgen wieder starten; jeden Morgen wachsen `regrow` Einheiten nach.
+
+## Rivalen und Saisons (`data/game/rivals.json`)
+
+Die Moosläufer leben mit eigenen Arten im Lager am anderen Ufer und spielen nach denselben Regeln
+(Einsatz, Belohnung, Erschöpfung, Freischaltungs-Kette, knappe Fundstellen). Sie kennen die wahren
+Fähigkeiten nicht: Sie starten mit vorsichtigen Schätzungen (`start_belief`), beobachten gezielt die
+Fähigkeiten der nächsten Aufgabe und lernen aus jedem Versuch (`learn`). Ihre Versuche sieht man in
+der Welt (die entscheidende Rolle zeigt ihr Verhalten), oben rechts erscheinen Punktestand und
+Meldungen. Sie heuern auch Fremde an; eine Art, die du für eine Rolle brauchst, kommt immer nach.
+
+Eine **Saison** dauert `season_days` Spieltage. Punkte = verdiente Belohnungen + Artfragen. Danach
+folgt die Schlusswertung; liegt jemand um `adaptive_margin` vorn, schlägt das Spiel eine stärkere
+bzw. ruhigere Stufe vor. In der neuen Saison bleiben Gruppe, Journal, Guthaben und freigeschaltete
+Aufgaben; die Rivalen beginnen neu, alle Vorräte sind voll, der Erstversuch-Bonus gilt wieder.
+
+| Stufe | Aktion alle | Aufgaben/Tag | Lernrate |
+|---|---|---|---|
+| gemütlich | 2.5 Spielstunden | 1 | 0.5 |
+| normal | 2 Spielstunden | 2 | 0.7 |
+| ehrgeizig | 1.2 Spielstunden | 2 | 0.85 |
+
 ## Guthaben und Anheuern (`data/game/progression.json`)
 
 Neue Kreaturen kommen nur über **Anheuern** in die Gruppe:

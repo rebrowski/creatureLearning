@@ -231,3 +231,57 @@ func test_needed_species_offer_avoids_dead_ends() -> void:
 	assert_gt(needed.size(), 0, "Trüffelsuche braucht einen Gräber, den die Startgruppe nicht hat")
 	gs.ensure_needed_offer(needed)
 	assert_true(gs.offers.any(func(o): return needed.has(o.species_id)), "ein passender Fremder wartet")
+
+
+func test_sites_limit_rewards_and_regrow() -> void:
+	var gs := GameState.new_game()
+	var t := _task()
+	t.site = "fruit_tree_0"
+	var stock: int = gs.site_stock(t)
+	assert_gt(stock, 0)
+	gs.sites["fruit_tree_0"] = 1
+	assert_gt(gs.record_task(t, true).earned, 0)
+	assert_eq(gs.site_stock(t), 0, "Vorrat verbraucht")
+	assert_true(gs.site_text(t).contains("nichts mehr"))
+	gs.new_morning()
+	assert_gt(gs.site_stock(t), 0, "wächst über Nacht nach")
+
+
+func test_rival_ai_is_fair_and_learns() -> void:
+	var gs := GameState.new_game()
+	var cat := AbilityCatalog.load_file(gs.schema)
+	var tc := TaskCatalog.load_dir(cat)
+	var r: RivalState = gs.rivals[0]
+	assert_eq(r.members.size(), 6)
+	assert_almost_eq(r.belief(r.members[0].id, "climb"), RivalState.start_belief(), 0.001, "kennt die wahren Werte nicht")
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 3
+	var ev := RivalAI.act(gs, r, tc, cat, rng)
+	assert_eq(ev.type, "observe", "mit vorsichtigen Schätzungen wird erst beobachtet")
+	# nach vielen Beobachtungen nähern sich die Schätzungen den wahren Werten
+	for i in 200:
+		RivalAI._observe(r, cat, rng, RivalState.difficulty("ehrgeizig"))
+	var m := r.members[0]
+	var err := 0.0
+	for a in cat.order:
+		err += absf(r.belief(m.id, a) - cat.base_value(a, m.genome))
+	assert_lt(err / cat.order.size(), 0.25, "lernt durch Beobachten")
+
+
+func test_season_result_and_save() -> void:
+	var gs := GameState.new_game()
+	gs.points = 50
+	gs.rivals[0].points = 100
+	gs.difficulty = "normal"
+	var res := gs.finish_season()
+	assert_false(res.won)
+	assert_eq(res.suggest, "gemütlich", "deutliche Niederlage: ruhigere Rivalen vorschlagen")
+	var loaded := GameState.new()
+	loaded._from_dict(gs.to_dict())
+	assert_eq(loaded.rivals.size(), 1)
+	assert_eq(loaded.rivals[0].members.size(), gs.rivals[0].members.size())
+	assert_eq(loaded.rivals[0].points, 100)
+	assert_eq(loaded.season.history.size(), 1)
+	gs.start_season(2)
+	assert_eq(gs.points, 0)
+	assert_eq(gs.reward_for(_task()), 60, "neue Saison: Erstversuch-Bonus gilt wieder")
