@@ -41,5 +41,5 @@ func update(delta: float) -> bool:
 		var head := creature.global_transform * (creature.plan.head_center + Vector3(0.0, creature.plan.body_center_y, 0.0))
 		BehaviorEffects.ring(world_parent(), head, 0.6 + 4.5 * _skill, Color(1.0, 1.0, 0.8, 0.7), 1.0)
 		if _skill > 0.2:
-			Sound.play("call", head)
+			Sound.play("call", head, creature)
 	return _count < CALLS or _timer > 0.0

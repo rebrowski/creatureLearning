@@ -293,3 +293,31 @@ func test_season_rollover() -> void:
 	assert_eq(g.difficulty, "ehrgeizig")
 	assert_eq(world.rival_creatures.size(), g.rivals[0].members.size(), "neue Rivalen im Lager")
 	world._start_next_season("normal")
+
+
+func test_interrupted_task_is_resumed_on_start() -> void:
+	var t: TaskDef = world.tasks.get_task("fruit_from_tree")
+	var m: GroupMember = world.game.members[0]
+	m.exhausted = false
+	var result := {"success": true, "roles": {"climber": {"success": true, "skipped": false, "score": 0.9, "threshold": 0.5, "close": false}}, "hints": []}
+	world.game.pending_task = {"task": t.id, "assignments": {"climber": m.id}, "result": result}
+	var attempts: int = world.game.tasks.get(t.id, {}).get("attempts", 0)
+	world._resume_pending_task()
+	assert_eq(world.game.tasks[t.id].attempts, attempts + 1, "Ergebnis wird nachgetragen")
+	assert_true(world.game.pending_task.is_empty())
+	assert_true(world._result_panel.visible, "Auswertung erscheint")
+	world._result_panel.visible = false
+	world._question.visible = false
+
+
+func test_sound_only_from_focused_visible_creature() -> void:
+	var a: Creature = world.creatures[0]
+	var b: Creature = world.creatures[1]
+	world._select(a)
+	world.camera.target = a.global_position
+	world.camera.distance = 8.0
+	world.camera._apply()
+	assert_true(world.is_sound_focus(a), "ausgewählte Kreatur im Bild ist hörbar")
+	if b != world.camera.follow:
+		assert_false(world.is_sound_focus(b), "andere Kreaturen bleiben still")
+	world._select(null)

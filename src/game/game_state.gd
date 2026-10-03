@@ -36,6 +36,9 @@ var points := 0
 ## Versuche der laufenden Saison (für die Belohnungsfaktoren): task_id -> {attempts, successes}
 var season_tasks: Dictionary = {}
 var rivals: Array[RivalState] = []
+## Laufende Aufgabe (falls die App währenddessen beendet wird, steht das Ergebnis
+## schon fest): {"task": id, "assignments": {role: member_id}, "result": {...}} oder {}
+var pending_task: Dictionary = {}
 ## vergangene Spielzeit in Stunden (für die Taktung der Rivalen)
 var game_hours := 0.0
 ## Bestimmungsbuch: Art-ID -> true, sobald eine Artfrage zu ihr richtig beantwortet wurde
@@ -109,7 +112,8 @@ func to_dict() -> Dictionary:
 			"credits": credits, "offers": offer_list, "intro_step": intro_step,
 			"identified": identified.keys(), "asked_pairs": asked_pairs.keys(), "sites": sites,
 			"season": season, "difficulty": difficulty, "points": points, "season_tasks": season_tasks,
-			"rivals": rivals.map(func(r): return r.to_dict()), "game_hours": game_hours}
+			"rivals": rivals.map(func(r): return r.to_dict()), "game_hours": game_hours,
+			"pending_task": pending_task}
 
 
 func _from_dict(d: Variant) -> void:
@@ -149,6 +153,7 @@ func _from_dict(d: Variant) -> void:
 			rivals.append(RivalState.from_dict(schema, rd))
 	else:
 		start_season(1)  # ältere Spielstände: erste Saison beginnt jetzt
+	pending_task = d.get("pending_task", {})
 	refill_sites()
 	var saved_sites: Dictionary = d.get("sites", {})
 	for k in saved_sites:

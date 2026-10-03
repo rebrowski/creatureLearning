@@ -136,3 +136,11 @@ kommt immer nach); Schwierigkeit wählbar und adaptiv (nach dominanten Saisonsie
   adaptivem Vorschlag (gemütlich / normal / ehrgeizig; Optionen → Gegner).
 - Simulierte Saison (Startgruppe der Rivalen, ohne Spieler): gemütlich ≈ 40–175, normal ≈ 155–205,
   ehrgeizig ≈ 310–360 Punkte – Testwerte zum Abstimmen nach Spieltests.
+
+### 1.0.1
+- Unterbrochene Aufgaben gehen nicht mehr verloren: Das Ergebnis wird beim Start der Aufgabe
+  gespeichert (`GameState.pending_task`) und nach einem Neustart ausgewertet. Die Web-App speichert
+  zusätzlich, sobald die Seite verborgen wird (App-Wechsel, Bildschirmsperre) – iOS lädt Web-Apps
+  danach oft neu (gemessen: kein Speicherwachstum, ~70 MB WebAssembly-Speicher nach 3 Minuten).
+- Geräusche nur noch von der Kreatur im Fokus (ausgewählt, verfolgt oder in der Aufgabe am Zug),
+  wenn sie im Bild und höchstens 30 m entfernt ist.

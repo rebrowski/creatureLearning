@@ -115,7 +115,7 @@ func _attach() -> void:
 	creature.velocity = Vector3.ZERO
 	_ground_xform = creature.global_transform
 	creature.locomotion.foot_override = _feet
-	Sound.play("climb", creature.global_position)
+	Sound.play("climb", creature.global_position, creature)
 	_state = ATTACH
 
 

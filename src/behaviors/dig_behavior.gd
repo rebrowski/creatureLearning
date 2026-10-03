@@ -46,7 +46,7 @@ func update(delta: float) -> bool:
 	_burst -= delta
 	if _burst <= 0.0:
 		_burst = 0.35
-		BehaviorEffects.dirt_burst(world_parent(), _front, _skill)
+		BehaviorEffects.dirt_burst(world_parent(), _front, _skill, creature)
 	return elapsed < DURATION
 
 

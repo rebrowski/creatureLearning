@@ -285,3 +285,11 @@ func test_season_result_and_save() -> void:
 	gs.start_season(2)
 	assert_eq(gs.points, 0)
 	assert_eq(gs.reward_for(_task()), 60, "neue Saison: Erstversuch-Bonus gilt wieder")
+
+
+func test_pending_task_is_saved() -> void:
+	var gs := GameState.new_game()
+	gs.pending_task = {"task": "fruit_from_tree", "assignments": {"climber": gs.members[0].id}, "result": {"success": true, "roles": {}, "hints": []}}
+	var loaded := GameState.new()
+	loaded._from_dict(JSON.parse_string(JSON.stringify(gs.to_dict())))
+	assert_eq(loaded.pending_task.task, "fruit_from_tree", "laufende Aufgabe übersteht einen Neustart")
