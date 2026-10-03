@@ -104,6 +104,18 @@ func show_stranger(offer: GroupMember, _title: String, p_journal: Journal, probl
 	refresh()
 
 
+## Kreatur einer Rivalen-Gruppe (nur ansehen).
+func show_rival(m: GroupMember, group_name: String, p_journal: Journal, p_debug := "") -> void:
+	mode = "rival"
+	member = null
+	_stranger = m
+	_problem = group_name
+	journal = p_journal
+	debug_text = p_debug
+	visible = true
+	refresh()
+
+
 ## Rollenwahl. info: {"role": Rollenname, "member": GroupMember, "stranger": bool,
 ## "rating": "Klettern: stark", "state": "fit"/"erschöpft"/…, "problem": "" oder Grund,
 ## "action": Knopftext, "filter": aktueller Filter, "index": i, "count": n}
@@ -130,6 +142,13 @@ func _rebuild() -> void:
 			_build_pick()
 		"stranger":
 			_build_stranger()
+		"rival":
+			_head(_stranger.name, _info(_stranger) + " · gehört zu den " + _problem)
+			if debug_text != "":
+				_box.add_child(UiUtil.label(debug_text, 13, Color(1, 0.8, 0.4)))
+			_box.add_child(UiUtil.label("Rivalen sammeln um dieselben Vorräte. Schau zu, was sie können – vielleicht verrät es etwas über deine eigenen Tiere.", 14, Color(1, 1, 1, 0.7)))
+			if expanded:
+				_observations(_box, _stranger.id)
 		_:
 			if member != null:
 				_build_member()

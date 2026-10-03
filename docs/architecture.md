@@ -63,6 +63,7 @@ core                                  (M1)  Ränge, Seeds, JSON
 | `src/taxonomy/species_diagnostics.gd` | Trennschärfe einzelner Gene zwischen zwei Arten (Designwerkzeug). |
 | `src/world/forest_world.gd` | Wurzel der Waldszene: Spielstand, Gruppe, Fremde, Anheuern, Überlappungen auflösen, Beobachtungsprotokoll, Aufgaben, HUD, Hinweis „Aufgabe starten?“. |
 | `src/game/game_state.gd`, `group_member.gd` | Spielstand (JSON, mit Genomen), Gruppe, Guthaben, Fremde und Anheuern. |
+| `src/game/rival_state.gd`, `rival_ai.gd` | Rivalen-Gruppe (Mitglieder, Schätzungen, Punkte) und ihre faire Entscheidungslogik. |
 | `src/game/sfx.gd`, `sound.gd` | Autoload „Sfx“ (Geräusche aus `assets/sounds`, Vibration) und statischer Zugriff `Sound`. |
 | `src/world/bait.gd`, `src/behaviors/seek_behavior.gd` | Köder und die Suche danach (Köder-Experimente). |
 | `src/game/ui_settings.gd` | Oberflächen-Skalierung (auto nach Bildschirmgröße), Namensschilder, Hinweis an/aus. |

@@ -18,6 +18,7 @@ func open() -> void:
 	box.add_child(UiUtil.label("Creature Learning", 30))
 	box.add_child(UiUtil.label("Niemand weiß, was diese Wesen können – nicht einmal, welche von ihnen zur selben Art gehören.", 18))
 	box.add_child(UiUtil.label("Stell sie auf die Probe, beobachte genau und finde heraus, wer welche Aufgabe meistert.", 18, Color(0.8, 0.95, 0.6)))
+	box.add_child(UiUtil.label("Am anderen Ufer sammeln die Moosläufer um dieselben Vorräte. Wer hat nach einer Saison (7 Tage) mehr Punkte?", 16, Color(0.85, 0.75, 1.0)))
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	box.add_child(row)

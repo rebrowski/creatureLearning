@@ -5,6 +5,7 @@
   "description": "Die größte Aufgabe: Frucht holen, über den Bach bringen und alle zusammenrufen.",
   "order": 9,
   "reward": 80,
+  "site": "fruit_tree_1",
   "unlock_after": "night_harvest",
   "context": {
     "hour": 12.0,

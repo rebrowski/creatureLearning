@@ -5,6 +5,7 @@
   "description": "Unter der Lichtung wachsen duftende Knollen. Eine feine Nase muss sie finden, jemand mit kräftigen Pfoten sie ausgraben.",
   "order": 3,
   "reward": 30,
+  "site": "truffles",
   "unlock_after": "fruit_over_stream",
   "context": {
     "hour": 14.0,

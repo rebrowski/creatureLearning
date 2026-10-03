@@ -103,6 +103,9 @@ func _build() -> void:
 		ctx.append({"clear": "klar", "cloudy": "bewölkt", "rain": "Regen"}.get(_selected.context.weather, ""))
 	right.add_child(UiUtil.label(" · ".join(ctx), 15, Color(1, 1, 1, 0.7)))
 	right.add_child(UiUtil.label(_economy_text(), 17, Color(0.95, 0.85, 0.4)))
+	var site := game.site_text(_selected)
+	if site != "":
+		right.add_child(UiUtil.label(site, 16, Color(0.75, 0.9, 1.0) if game.site_stock(_selected) > 0 else Color(1, 0.7, 0.5)))
 	right.add_child(UiUtil.label("Rollen – tippe auf einen Platz und dann auf eine Kreatur", 18, Color(0.8, 0.95, 0.6)))
 	for r in _selected.roles:
 		right.add_child(_role_row(r))
@@ -164,6 +167,8 @@ static func main_ability(r: Dictionary) -> String:
 
 
 func _problem() -> String:
+	if game.site_stock(_selected) == 0:
+		return "Hier gibt es gerade nichts zu holen – morgen wieder."
 	var used := {}
 	for r in _selected.roles:
 		if not _choice.has(r.id):

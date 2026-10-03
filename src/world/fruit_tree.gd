@@ -84,3 +84,9 @@ func take_fruit() -> bool:
 func regrow() -> void:
 	for f in fruits:
 		f.visible = true
+
+
+## Genau n Früchte sichtbar machen (Vorrat der Fundstelle).
+func set_visible_fruits(n: int) -> void:
+	for i in fruits.size():
+		fruits[i].visible = i < n

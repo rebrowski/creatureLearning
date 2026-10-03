@@ -39,6 +39,10 @@ const BAIT_RADIUS := 14.0
 const BAIT_MAX_TRIALS := 3
 ## Zeitraffer für „Überspringen“ (schon gesehene Aufgaben).
 const SKIP_SPEED := 6.0
+## Rivalen streifen in diesem Umkreis um ihr Lager.
+const RIVAL_ROAM := 9.0
+const TICKER_LINES := 3
+const TICKER_SECONDS := 9.0
 ## Rollenwahl-Filter „In der Nähe“: Umkreis um den Ort der Aufgabe (Meter).
 const NEAR_RADIUS := 15.0
 ## Kamera-Verschiebung je Leistenhöhe (1 = Kreatur genau mittig im freien Bereich;
@@ -70,6 +74,8 @@ var brains: Array[BehaviorBrain] = []
 var members: Dictionary = {}
 ## Creature -> GroupMember (Fremde am Waldrand, noch nicht angeheuert)
 var strangers: Dictionary = {}
+## Creature -> [RivalState, GroupMember] (Kreaturen der Rivalen)
+var rival_creatures: Dictionary = {}
 var show_names := true
 var selected: Creature
 var debug_mode := false
@@ -101,6 +107,12 @@ var _skip: Button
 var _skipping := false
 var _credits: Label
 var _idle := 0.0
+var _rival_rng := RandomNumberGenerator.new()
+var _score: Label
+var _season_label: Label
+var _ticker: VBoxContainer
+var _season_panel: SeasonPanel
+var _difficulty_button: Button
 var _last_hour := -1.0
 var _morning_hour := -1.0
 var _prompt_after := PROMPT_IDLE
@@ -136,6 +148,7 @@ func _ready() -> void:
 	navigation.baked.connect(func(): print("Navmesh gebacken in %d ms" % navigation.bake_msec))
 	navigation.bake_from_terrain()
 
+	_rival_rng.randomize()
 	game = GameState.load_file() if saving_enabled and GameState.exists() else null
 	if game == null or not game.is_valid():
 		if game != null:
@@ -161,9 +174,11 @@ func _ready() -> void:
 		_spawn_member(game.members[i], _spawn_point(l, i))
 	for o in game.offers:
 		_spawn_stranger(o)
+	_spawn_rivals()
 	_ensure_needed_offer()
 	_spawn_items(l)
 	_update_tags()
+	sync_sites()
 	bait_resolved.connect(_on_bait_resolved)
 	game.journal.changed.connect(func():
 		if game.intro_step == 2 and _rating_count() > _intro_ratings:
@@ -221,6 +236,7 @@ func _process(delta: float) -> void:
 			_intro_next()
 	_update_prompt(delta)
 	_credits.text = "%d %s" % [game.credits, GameState.currency()]
+	_update_score()
 	var h := day_night.hour
 	var extra := ""
 	if debug_mode:
@@ -244,6 +260,8 @@ func _process(delta: float) -> void:
 # --- Kreaturen ----------------------------------------------------------------
 
 func _member_of(c: Creature) -> GroupMember:
+	if rival_creatures.has(c):
+		return rival_creatures[c][1]
 	return members.get(c, strangers.get(c))
 
 
@@ -738,7 +756,9 @@ func _select(c: Creature) -> void:
 		_card.visible = false
 		return
 	camera.distance = clampf(camera.distance, 4.0, 10.0)
-	if strangers.has(c):
+	if rival_creatures.has(c):
+		_card.show_rival(rival_creatures[c][1], rival_creatures[c][0].name, game.journal, _debug_text(c))
+	elif strangers.has(c):
 		var o: GroupMember = strangers[c]
 		_card.show_stranger(o, o.name, game.journal, game.hire_problem(o), _debug_text(c))
 	else:
@@ -794,6 +814,9 @@ func creature_of(m: GroupMember) -> Creature:
 	for c in strangers:
 		if strangers[c] == m:
 			return c
+	for c in rival_creatures:
+		if rival_creatures[c][1] == m:
+			return c
 	return null
 
 
@@ -804,6 +827,7 @@ func _on_task_finished(result: Dictionary, task: TaskDef, role_names: Dictionary
 		if not e.get("success", false) and not e.get("skipped", false):
 			failed.append(assignments[role_id])
 	var outcome := game.record_task(task, result.success, failed)
+	sync_sites()
 	weather.auto_change = true
 	for o in outcome.new_offers:
 		_spawn_stranger(o)
@@ -900,6 +924,7 @@ func _despawn(c: Creature) -> void:
 	brains.remove_at(i)
 	strangers.erase(c)
 	members.erase(c)
+	rival_creatures.erase(c)
 	if selected == c:
 		_select(null)
 	c.queue_free()
@@ -939,6 +964,10 @@ func _update_tags() -> void:
 			c.set_tag("%s: %s" % [_roles_shown[c], _member_of(c).name], TAG_ROLE)
 		elif not show_names or test_creatures.has(c):
 			c.set_tag("")
+		elif rival_creatures.has(c):
+			var rv: RivalState = rival_creatures[c][0]
+			var rm: GroupMember = rival_creatures[c][1]
+			c.set_tag("%s · %s%s" % [rm.name, rv.name, " · erschöpft" if rm.exhausted else ""], rv.color)
 		elif strangers.has(c):
 			c.set_tag("%s · %d %s" % [strangers[c].name, strangers[c].price, GameState.currency()], TAG_STRANGER)
 		elif members.has(c):
@@ -950,18 +979,205 @@ func _update_tags() -> void:
 func _check_morning() -> void:
 	var h := day_night.hour
 	if _last_hour >= 0.0:
+		var dh := h - _last_hour
+		if dh < -12.0:
+			dh += 24.0
+		if dh > 0.0:
+			_tick_rivals(dh)
 		var m := float(GameState.progression().get("morning_hour", 6.0)) if _morning_hour < 0.0 else _morning_hour
 		_morning_hour = m
 		# rückwärts um mehr als 12 h = über Mitternacht; kleine Rücksprünge (Aufgaben setzen die Uhrzeit) zählen nicht
 		var wrapped := _last_hour - h > 12.0
 		var crossed := (_last_hour < m and h >= m) or (wrapped and (h >= m or _last_hour < m))
 		if crossed:
-			for t in terrain.fruit_trees:
-				t.regrow()
-			if game.new_morning() > 0:
+			var rested := game.new_morning()
+			sync_sites()
+			_on_new_day()
+			if rested > 0:
 				_update_tags()
 				_show_note("Ein neuer Morgen – alle sind ausgeruht.")
 	_last_hour = h
+
+
+## Sichtbare Früchte an den Bäumen = Vorrat der Fundstellen.
+func sync_sites() -> void:
+	var cfg := GameState.sites_config()
+	for id in game.sites:
+		var c: Dictionary = cfg.get(id, {})
+		if c.has("tree") and int(c.tree) < terrain.fruit_trees.size():
+			terrain.fruit_trees[int(c.tree)].set_visible_fruits(int(game.sites[id]))
+
+
+## Neuer Spieltag: Saison weiterzählen; am Ende Schlusswertung.
+func _on_new_day() -> void:
+	if game.advance_day():
+		_prompt.visible = false
+		_card.visible = false
+		_season_panel.open(game.finish_season())
+		_season_panel.move_to_front()
+		save_game()
+	_update_tags()
+
+
+func _update_score() -> void:
+	var parts := ["Du %d" % game.points]
+	for r in game.rivals:
+		parts.append("%s %d" % [r.name, r.points])
+	_score.text = " · ".join(parts)
+	_season_label.text = "Saison %d · Tag %d/%d · Gegner: %s" % [int(game.season.get("number", 1)),
+			mini(int(game.season.get("day", 1)), int(game.season.get("days", 7))), int(game.season.get("days", 7)),
+			RivalState.difficulty(game.difficulty).get("label", game.difficulty)]
+
+
+## Meldung oben rechts (höchstens TICKER_LINES, verblasst nach TICKER_SECONDS).
+func _ticker_add(text: String, color: Color) -> void:
+	var l := _outlined_label()
+	l.text = text
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.custom_minimum_size.x = 340
+	l.add_theme_font_size_override("font_size", 14)
+	l.add_theme_color_override("font_color", color)
+	_ticker.add_child(l)
+	while _ticker.get_child_count() > TICKER_LINES:
+		_ticker.get_child(0).free()
+	var tw := l.create_tween()
+	tw.tween_interval(TICKER_SECONDS)
+	tw.tween_property(l, "modulate:a", 0.0, 1.5)
+	tw.tween_callback(l.queue_free)
+
+
+func _start_next_season(difficulty: String) -> void:
+	for c in rival_creatures.keys():
+		_despawn(c)
+	game.difficulty = difficulty
+	game.start_season(int(game.season.get("number", 1)) + 1)
+	_spawn_rivals()
+	sync_sites()
+	_update_tags()
+	_show_note("Saison %d beginnt – Gegner: %s" % [int(game.season.number), RivalState.difficulty(difficulty).get("label", difficulty)])
+	save_game()
+
+
+func _cycle_difficulty() -> void:
+	var order: Array = RivalState.config().get("order", ["gemütlich", "normal", "ehrgeizig"])
+	game.difficulty = order[(order.find(game.difficulty) + 1) % order.size()]
+	_difficulty_button.text = "Gegner: " + str(RivalState.difficulty(game.difficulty).get("label", game.difficulty))
+	_save_pending = true
+
+
+# --- Rivalen ----------------------------------------------------------------------
+
+func _spawn_rivals() -> void:
+	for r in game.rivals:
+		for m in r.members:
+			_spawn_rival_member(r, m)
+
+
+func _spawn_rival_member(r: RivalState, m: GroupMember) -> Creature:
+	var home := _camp_point(r, m)
+	var c := _spawn_member(m, home, true)
+	strangers.erase(c)
+	rival_creatures[c] = [r, m]
+	var b := brains[creatures.find(c)]
+	b.home = Vector3(r.camp.x, 0.0, r.camp.y)
+	b.roam_radius = RIVAL_ROAM
+	return c
+
+
+func _camp_point(r: RivalState, m: GroupMember) -> Vector3:
+	var l := terrain.layout
+	var rng := RngUtil.make_rng(["camp", l.seed_value, m.id])
+	for attempt in 40:
+		var a := rng.randf_range(0.0, TAU)
+		var d := rng.randf_range(0.0, 5.0)
+		var x := r.camp.x + cos(a) * d
+		var z := r.camp.y + sin(a) * d
+		if l.zone_at(x, z) in ["forest", "clearing"]:
+			return Vector3(x, l.height_at(x, z), z)
+	return Vector3(r.camp.x, l.height_at(r.camp.x, r.camp.y), r.camp.y)
+
+
+## Spielzeit vorrücken und fällige Rivalen-Aktionen ausführen.
+func _tick_rivals(hours: float) -> void:
+	game.game_hours += hours
+	if _player != null or game.rivals.is_empty():
+		return
+	var cfg := RivalState.config()
+	var active: Array = cfg.get("active_hours", [7, 21])
+	var h := day_night.hour
+	if h < float(active[0]) or h > float(active[1]):
+		return
+	var interval := float(RivalState.difficulty(game.difficulty).get("interval_hours", 2.0))
+	for r in game.rivals:
+		if game.game_hours < r.next_action:
+			continue
+		r.next_action = game.game_hours + interval
+		var ev := RivalAI.act(game, r, tasks, catalog, _rival_rng)
+		_on_rival_event(r, ev)
+
+
+func _on_rival_event(r: RivalState, ev: Dictionary) -> void:
+	match str(ev.type):
+		"task":
+			_show_rival_attempt(r, ev)
+			sync_sites()
+			_ticker_add(ev.text, r.color if ev.result.success else Color(1.0, 0.65, 0.5))
+			_update_tags()
+		"hire":
+			var c := creature_of(ev.member)
+			if c != null:
+				strangers.erase(c)
+				rival_creatures[c] = [r, ev.member]
+				var b := brains[creatures.find(c)]
+				b.home = Vector3(r.camp.x, 0.0, r.camp.y)
+				b.roam_radius = RIVAL_ROAM
+			for o in game.refill_offers():
+				_spawn_stranger(o)
+			_ensure_needed_offer()
+			_update_tags()
+			if _hire_panel.visible:
+				_hire_panel.open(game)
+			_ticker_add(ev.text, r.color)
+	_save_pending = true
+
+
+## Der Versuch der Rivalen wird sichtbar: die entscheidende Rolle zeigt ihr Verhalten.
+func _show_rival_attempt(r: RivalState, ev: Dictionary) -> void:
+	var t: TaskDef = ev.task
+	var role_id := ""
+	for rl in t.roles:
+		var e: Dictionary = ev.result.roles.get(rl.id, {})
+		if not e.get("success", false) and not e.get("skipped", false):
+			role_id = rl.id
+			break
+	if role_id == "":
+		role_id = t.roles[0].id
+	var m: GroupMember = ev.assignments.get(role_id)
+	var c := creature_of(m) if m != null else null
+	if c == null or c.scripted:
+		return
+	var outcome := "success" if ev.result.roles.get(role_id, {}).get("success", false) else "fail"
+	var b := brains[creatures.find(c)]
+	var tp := TaskPlayer.new()
+	tp.world = self
+	tp.task = t
+	for step in t.steps:
+		if str(step.get("role", "")) != role_id:
+			continue
+		match str(step.type):
+			"climb_tree":
+				b.force("climb_tree", {"tree": tp._resolve(str(step.place)), "forced_outcome": outcome})
+			"cross_stream":
+				var p = tp._resolve(str(step.place))
+				var pv: Vector3 = p.global_position if p is Node3D else p
+				b.force("swim", {"crossing": Vector2(pv.x, pv.z), "forced_outcome": outcome})
+			"behavior":
+				b.force(str(step.get("behavior", "wander")), {"forced_outcome": outcome})
+			_:
+				continue
+		break
+	tp.free()
 
 
 ## Kurze Einblendung oben (verschwindet nach ein paar Sekunden, nicht während Aufgaben).
@@ -980,7 +1196,7 @@ func _update_prompt(delta: float) -> void:
 			or game.intro_step < GameState.INTRO_DONE:
 		_idle = 0.0
 		return
-	for panel in [_task_panel, _journal_panel, _result_panel, _hire_panel, _prompt, _intro, _question]:
+	for panel in [_task_panel, _journal_panel, _result_panel, _hire_panel, _prompt, _intro, _question, _season_panel]:
 		if panel.visible:
 			_idle = 0.0
 			return
@@ -1050,6 +1266,7 @@ func _build_hud() -> void:
 	more.pressed.connect(func(): opts.visible = not opts.visible)
 	_time_button = _button(opts, "Tempo ×1", _cycle_time)
 	_wait_button = _button(opts, "Warten …", wait_until_next)
+	_difficulty_button = _button(opts, "Gegner: " + str(RivalState.difficulty(game.difficulty).get("label", game.difficulty)), _cycle_difficulty)
 	var snd := _button(opts, "Ton: an" if Sound.is_enabled() else "Ton: aus", Callable())
 	snd.pressed.connect(func():
 		Sound.set_enabled(not Sound.is_enabled())
@@ -1088,6 +1305,28 @@ func _build_hud() -> void:
 			_select(selected))
 	_info = _outlined_label()
 	root.add_child(_info)
+
+	# Punktestand und Meldungen der Rivalen (oben rechts)
+	var score_box := VBoxContainer.new()
+	score_box.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	score_box.offset_left = -360
+	score_box.offset_right = -12
+	score_box.offset_top = 8
+	score_box.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	score_box.alignment = BoxContainer.ALIGNMENT_BEGIN
+	score_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ui.add_child(score_box)
+	_season_label = _outlined_label()
+	_season_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_season_label.add_theme_font_size_override("font_size", 14)
+	score_box.add_child(_season_label)
+	_score = _outlined_label()
+	_score.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_score.add_theme_font_size_override("font_size", 20)
+	score_box.add_child(_score)
+	_ticker = VBoxContainer.new()
+	_ticker.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	score_box.add_child(_ticker)
 
 	# Einblendung der Aufgabenschritte (oben mittig, groß)
 	_banner = _outlined_label()
@@ -1167,6 +1406,9 @@ func _build_hud() -> void:
 	ui.add_child(_result_panel)
 	_question = SpeciesQuestionPanel.new()
 	ui.add_child(_question)
+	_season_panel = SeasonPanel.new()
+	_season_panel.next_season.connect(_start_next_season)
+	ui.add_child(_season_panel)
 	_result_panel.closed.connect(func():
 		var q := game.species_question()
 		if not q.is_empty():
@@ -1336,3 +1578,27 @@ func debug_pick(spec: String) -> void:
 ## Kreaturen-Leiste auf- oder zuklappen (Screenshots).
 func debug_card_expand(on: bool) -> void:
 	_card.set_expanded(on)
+
+
+## Rivalen sofort handeln lassen; n Mal (Screenshots).
+func debug_rival_act(n: int) -> void:
+	var r: RivalState = game.rivals[0]
+	for m in r.members:
+		for a in catalog.order:
+			r.set_belief(m.id, a, catalog.base_value(a, m.genome))
+	for i in n:
+		_on_rival_event(r, RivalAI.act(game, r, tasks, catalog, _rival_rng))
+
+
+## Saison sofort beenden (Screenshots).
+func debug_season_end() -> void:
+	game.season.day = game.season.days
+	_on_new_day()
+
+
+## Kamera auf das Lager der Rivalen (Screenshots).
+func debug_view_camp() -> void:
+	var r: RivalState = game.rivals[0]
+	camera.follow = null
+	camera.target = Vector3(r.camp.x, terrain.layout.height_at(r.camp.x, r.camp.y), r.camp.y)
+	camera.distance = 12.0

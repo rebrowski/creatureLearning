@@ -5,6 +5,7 @@
   "description": "Hoch im großen Baum hängt eine reife Frucht. Wer kommt hinauf und holt sie herunter?",
   "order": 1,
   "reward": 20,
+  "site": "fruit_tree_0",
   "context": {
     "hour": 10.0,
     "weather": "clear"

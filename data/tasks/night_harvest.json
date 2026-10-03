@@ -5,6 +5,7 @@
   "description": "Nachts sind die Früchte am süßesten. Einer findet im Dunkeln den Weg zum Baum, ein anderer klettert hinauf.",
   "order": 8,
   "reward": 45,
+  "site": "fruit_tree_2",
   "unlock_after": "guard_camp",
   "context": {
     "hour": 23.0,
