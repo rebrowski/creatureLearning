@@ -6,32 +6,30 @@ extends Node3D
 ## auf der Bühne (Stage, abseits des Lagers) durch, ebenso die Proben, und
 ## verwaltet das Anheuern.
 ##
+## Das Spiel läuft in Runden (Runde = Spieltag der Saison) mit vier Phasen:
+## Zug der Rivalen (als Bühnenszene) → zwei Proben → eigene Aufgabe (Wahl aus den
+## Angeboten der Runde) → Abend (Artfrage, Ergebnisse, Erholung, „Nächste Runde“).
+## Die Uhr läuft nicht von selbst; jede Phase hat ihre Tageszeit. Im Lager kann man
+## jederzeit zuschauen.
+##
 ## Die Szene (scenes/world/forest.tscn) wird von tools/build_forest.gd erzeugt;
 ## Knoten werden über ihre Namen gefunden.
 ## Ohne Spielstand (Tests, Screenshots): Root-Meta "forest_no_save" setzen.
 
-## Tempo-Stufen (Knopf „Tempo“): beschleunigt alles – Kreaturen, Aufgaben und
-## Tageszeit (Engine.time_scale); 0 = Pause.
-const TIME_SCALES := [1.0, 1.5, 2.0, 3.0, 4.0, 0.0]
-## „Warten“: springt zum nächsten Abend bzw. Morgen (Uhrzeit).
-const EVENING_HOUR := 19.5
-const MORNING_WAKE := 7.0
+## Tageszeit je Phase der Runde
+const PHASE_HOURS := {"rivals": 8.0, "probes": 10.0, "task": 14.0, "evening": 19.5}
+const ROUND_PHASE_LABELS := {"rivals": "Zug der Rivalen", "probes": "Proben", "task": "Aufgabe", "evening": "Abend"}
 const WEATHER_LABELS := {"clear": "klar", "cloudy": "bewölkt", "rain": "Regen"}
-const PHASE_LABELS := {"night": "Nacht", "dawn": "Morgen", "day": "Tag", "dusk": "Abend"}
 ## Beobachtungen werden protokolliert, wenn die Kreatur höchstens so weit von der Kamera entfernt ist.
 const OBSERVE_DISTANCE := 28.0
 const AUTOSAVE_SECONDS := 60.0
 ## Höchstgeschwindigkeit, mit der sich überlappende Kreaturen auseinanderschieben (m/s).
 const SEPARATE_SPEED := 1.5
-## Hinweis „Aufgabe starten?“ nach so vielen Sekunden ohne Eingabe (danach PROMPT_AGAIN).
-const PROMPT_IDLE := 20.0
-const PROMPT_AGAIN := 90.0
 ## Fremde streifen in diesem Abstand vom Lagerplatz umher (Meter).
 const STRANGER_DISTANCE := 13.0
 const STRANGER_ROAM := 5.0
 const TAG_MEMBER := Color(1, 1, 1)
 const TAG_STRANGER := Color(1.0, 0.75, 0.35)
-const TAG_ROLE := Color(1.0, 0.92, 0.45)
 const TAG_TIRED := Color(0.7, 0.7, 0.8)
 ## Die Bühne liegt weit außerhalb des Geländes (64 × 64 m), damit man von dort
 ## nichts vom Lager sieht und umgekehrt.
@@ -42,10 +40,8 @@ const PROBES_PER_DAY := 2
 const SKIP_SPEED := 6.0
 ## Rivalen streifen in diesem Umkreis um ihr Lager.
 const RIVAL_ROAM := 9.0
-const TICKER_LINES := 3
 ## Geräusche der Kreatur im Fokus sind bis zu dieser Kameradistanz hörbar (Meter).
 const SOUND_DISTANCE := 30.0
-const TICKER_SECONDS := 9.0
 ## Kamera-Verschiebung je Leistenhöhe (1 = Kreatur genau mittig im freien Bereich;
 ## etwas weniger, damit sie nicht unter die Knöpfe oben rutscht).
 const VIEW_SHIFT_FACTOR := 0.7
@@ -89,15 +85,17 @@ var _status: Label
 var _info: Label
 ## obere Leiste (Status, Knöpfe) – auf der Bühne ausgeblendet
 var _hud_top: Control
-var _time_button: Button
-var _wait_button: Button
-var _time_index := 0
+## Hauptknopf der Phase (Probe / Aufgabe wählen / Abend) und „Weiter ›“
+var _phase_button: Button
+var _next_button: Button
+var _round_panel: RoundPanel
+## Was der Hauptknopf der Übersicht als Nächstes tut
+var _round_next: Callable
 var _card: CreatureCard
 var _journal_panel: JournalPanel
 var _task_panel: TaskPanel
 var _result_panel: ResultPanel
 var _hire_panel: HirePanel
-var _prompt: TaskPrompt
 var _intro: IntroPanel
 var _question: SpeciesQuestionPanel
 var _intro_timer := 0.0
@@ -106,20 +104,14 @@ var _banner: Label
 var _skip: Button
 var _skipping := false
 var _credits: Label
-var _idle := 0.0
 var _rival_rng := RandomNumberGenerator.new()
 var _web_save_cb: JavaScriptObject
 var _score: Label
 var _season_label: Label
-var _ticker: VBoxContainer
+## Punktestand oben rechts – auf der Bühne ausgeblendet (verrät sonst das Ergebnis)
+var _score_box: Control
 var _season_panel: SeasonPanel
 var _difficulty_button: Button
-var _last_hour := -1.0
-var _morning_hour := -1.0
-var _prompt_after := PROMPT_IDLE
-var _prompt_enabled := true
-## Creature -> Rollenname, solange eine Aufgabe läuft
-var _roles_shown: Dictionary = {}
 ## true, solange auf der Bühne etwas läuft (Probe, Aufgabe)
 var _busy := false
 var stage: Stage
@@ -127,7 +119,6 @@ var director: StageDirector
 var probe_catalog: ProbeCatalog
 var _gallery: GalleryBar
 var _probe_panel: ProbePanel
-var _probe_button: Button
 ## Wofür die Galerie gerade offen ist: {"probe": Dictionary} oder {"task": TaskDef, "role": String};
 ## "last": Name der zuletzt geprüften Kreatur (für die Einführung)
 var _gallery_for: Dictionary = {}
@@ -164,16 +155,17 @@ func _ready() -> void:
 		return
 	graphics_level = GraphicsSettings.load_level()
 	GraphicsSettings.apply(graphics_level, get_node_or_null("Sun"), get_viewport())
-	day_night.hour = game.hour
+	day_night.set_process(false)  # die Uhr folgt den Phasen der Runde
+	day_night.hour = PHASE_HOURS.get(game.phase, 10.0)
+	day_night.apply_lighting()
 	weather.set_state(game.weather)
-	weather.auto_change = true
+	weather.auto_change = false
 	catalog = AbilityCatalog.load_file(game.schema)
 	tasks = TaskCatalog.load_dir(catalog)
 	if not tasks.errors.is_empty():
 		push_error("\n".join(tasks.errors))
 	game.journal.changed.connect(func(): _save_pending = true)
 	show_names = UiSettings.show_names()
-	_prompt_enabled = UiSettings.task_prompt()
 	_build_stage()
 	_build_hud()
 	for i in game.members.size():
@@ -188,16 +180,19 @@ func _ready() -> void:
 	game.journal.changed.connect(func():
 		if game.intro_step == 2 and _rating_count() > _intro_ratings:
 			_intro_next())
-	if game.intro_step < GameState.INTRO_DONE:
+	_update_phase_ui()
+	if not game.pending_task.is_empty():
+		_resume_or_enter.call_deferred()
+	elif game.intro_step < GameState.INTRO_DONE:
 		_intro_show.call_deferred()
-	_update_probe_button()
-	_resume_pending_task.call_deferred()
+	else:
+		_enter_phase.call_deferred()
 	_hook_web_save()
 
 
 func _exit_tree() -> void:
-	# Tempo gilt nur in der Waldwelt (Engine.time_scale ist global)
-	if _time_index != 0:
+	# Zeitraffer gilt nur in der Waldwelt (Engine.time_scale ist global)
+	if _skipping:
 		debug_speed(1.0)
 
 
@@ -225,7 +220,7 @@ func _hook_web_save() -> void:
 func save_game() -> void:
 	if not saving_enabled or game == null or not is_inside_tree():
 		return
-	game.hour = day_night.hour
+	game.hour = PHASE_HOURS.get(game.phase, day_night.hour)
 	game.weather = weather.state
 	game.save()
 	_save_pending = false
@@ -242,24 +237,16 @@ func _physics_process(delta: float) -> void:
 		save_game()
 
 
-func _input(event: InputEvent) -> void:
-	if event is InputEventScreenTouch or event is InputEventMouseButton or event is InputEventKey or event is InputEventScreenDrag:
-		_idle = 0.0
-
-
 func _process(delta: float) -> void:
 	perf.tick()
 	if game == null or _status == null:
 		return
-	_check_morning()
 	if game.intro_step == 2:
 		_intro_timer += delta
 		if _intro_timer > 40.0:
 			_intro_next()
-	_update_prompt(delta)
 	_credits.text = "%d %s" % [game.credits, GameState.currency()]
 	_update_score()
-	var h := day_night.hour
 	var extra := ""
 	if debug_mode:
 		var st := perf.stats()
@@ -268,9 +255,9 @@ func _process(delta: float) -> void:
 			Engine.get_frames_per_second(), st.avg, st.p95, st.max,
 			Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), GraphicsSettings.LABELS[graphics_level],
 			lod[0], lod[1], lod[2], lod[3], int(day_night.light_level() * 100.0), int(weather.wetness * 100.0)]
-	_status.text = "%02d:%02d %s · Wetter %s · Gruppe: %d%s" % [
-		int(h), int(fposmod(h, 1.0) * 60.0), PHASE_LABELS[day_night.phase()], WEATHER_LABELS[weather.state],
-		game.members.size(), extra]
+	_status.text = "Runde %d/%d · %s · Wetter %s · Gruppe: %d%s" % [
+		mini(game.round_number(), int(game.season.get("days", 7))), int(game.season.get("days", 7)),
+		ROUND_PHASE_LABELS.get(game.phase, ""), WEATHER_LABELS[weather.state], game.members.size(), extra]
 	if _busy:
 		_info.text = ""
 	elif selected != null and _member_of(selected) != null:
@@ -465,6 +452,10 @@ func _intro_show() -> void:
 		0:
 			_intro.open()
 		1:
+			if game.phase == "rivals":
+				_apply_rival_turn()  # in der Einführung ohne Bühnenszene
+			game.phase = "probes"
+			_update_phase_ui()
 			_intro_banner("Wer von euch kommt einen Baum hinauf? Auf der Lichtung steht ein Stamm mit zwei Ringen und einer Frucht. Wähle unten eine Kreatur für die Kletterprobe.")
 			open_probe(probe_catalog.get_probe("climb"))
 		2:
@@ -475,11 +466,7 @@ func _intro_show() -> void:
 		3:
 			game.intro_step = GameState.INTRO_DONE
 			_banner.visible = false
-			var first: TaskDef = tasks.tasks[0] if not tasks.tasks.is_empty() else null
-			if first != null:
-				_card.visible = false
-				_task_panel.open(game, tasks, first, catalog)
-			save_game()
+			set_phase("task")
 
 
 func _rating_count() -> int:
@@ -553,11 +540,17 @@ static func _json_safe(result: Dictionary) -> Dictionary:
 	return r
 
 
+func _resume_or_enter() -> void:
+	if not _resume_pending_task():
+		_enter_phase()
+
+
 ## Beim Start: eine unterbrochene Aufgabe auswerten (Ergebnis stand schon fest).
-func _resume_pending_task() -> void:
+## false = keine (gültige) Aufgabe offen.
+func _resume_pending_task() -> bool:
 	var p := game.pending_task
 	if p.is_empty():
-		return
+		return false
 	var task := tasks.get_task(str(p.get("task", "")))
 	var assignments := {}
 	var role_names := {}
@@ -568,11 +561,12 @@ func _resume_pending_task() -> void:
 			role_names[role_id] = m.name
 	if task == null or assignments.size() != task.roles.size():
 		game.pending_task = {}
-		return
+		return false
 	var result: Dictionary = p.get("result", {})
 	result.hints = PackedStringArray(result.get("hints", []))
 	_show_note("Die Aufgabe „%s“ wurde unterbrochen – hier ist ihr Ergebnis." % task.name, 4.0)
 	_on_task_finished(result, task, role_names, assignments)
+	return true
 
 
 func creature_of(m: GroupMember) -> Creature:
@@ -596,20 +590,20 @@ func _on_task_finished(result: Dictionary, task: TaskDef, role_names: Dictionary
 			failed.append(assignments[role_id])
 	var outcome := game.record_task(task, result.success, failed)
 	game.pending_task = {}
+	game.round_log.append({"who": "player", "earned": int(outcome.earned) - int(outcome.cost),
+			"text": "Du: „%s“ %s (%s)" % [task.name, "geschafft" if result.success else "nicht geschafft",
+			("+%d" % outcome.earned) if result.success else ("−%d" % outcome.cost)]})
+	if game.phase == "task":
+		game.phase = "evening"
 	sync_sites()
-	weather.auto_change = true
 	for o in outcome.new_offers:
 		_spawn_stranger(o)
 	if result.success:
 		_ensure_needed_offer()
 	save_game()
 	_banner.visible = false
-	for c in _roles_shown:
-		if is_instance_valid(c):
-			c.priority = 0
-	_roles_shown.clear()
 	_update_tags()
-	_idle = 0.0
+	_update_phase_ui()
 	_result_panel.show_result(task, result, role_names, outcome, assignments, game.journal, catalog)
 
 
@@ -662,15 +656,6 @@ func cycle_selection(direction: int) -> void:
 	_select(list[posmod(i + direction, list.size())] if i >= 0 else list[0])
 
 
-## Tempo setzen (Index in TIME_SCALES) und beide Tempo-Knöpfe beschriften.
-func set_tempo(index: int) -> void:
-	_time_index = posmod(index, TIME_SCALES.size())
-	var scale: float = TIME_SCALES[_time_index]
-	debug_speed(scale)
-	var text := "Pause" if scale == 0.0 else ("Tempo ×%s" % String.num(scale, 1).trim_suffix(".0"))
-	_time_button.text = text
-
-
 ## Unter den Fremden muss jemand sein, der eine fehlende Rolle übernehmen kann.
 func _ensure_needed_offer() -> void:
 	var r := game.ensure_needed_offer(game.needed_species(tasks, catalog))
@@ -715,13 +700,12 @@ func _build_stage() -> void:
 ## Zur Bühne wechseln: eigene Kamera, Uhr steht, nur „Überspringen“ sichtbar.
 func enter_stage() -> void:
 	_busy = true
-	for panel in [_card, _task_panel, _journal_panel, _hire_panel, _prompt, _gallery, _probe_panel]:
+	for panel in [_card, _task_panel, _journal_panel, _hire_panel, _gallery, _probe_panel, _round_panel]:
 		panel.visible = false
-	day_night.set_process(false)
-	weather.auto_change = false
 	stage.visible = true
 	stage.camera.current = true
 	_hud_top.visible = false
+	_score_box.visible = false
 	_banner.offset_top = 12
 	_skip.visible = true
 	_skipping = false
@@ -732,15 +716,16 @@ func leave_stage() -> void:
 	stage.clear()
 	stage.visible = false
 	camera.make_current()
-	day_night.set_process(true)
-	weather.auto_change = true
+	for c in creatures:
+		c.refresh_lod()  # im Lager war während der Bühne alles ausgeblendet (zu weit weg)
 	_hud_top.visible = true
+	_score_box.visible = true
 	_banner.offset_top = 150
 	_skip.visible = false
 	_banner.visible = false
 	if _skipping:
 		_skipping = false
-		set_tempo(_time_index)
+		debug_speed(1.0)
 	_busy = false
 
 
@@ -834,7 +819,7 @@ func run_probe(m: GroupMember, probe: Dictionary) -> void:
 	enter_stage()
 	await director.run_probe(m, probe, g)
 	leave_stage()
-	_update_probe_button()
+	_update_phase_ui()
 	var c := creature_of(m)
 	if c != null:
 		_select(c)
@@ -843,9 +828,214 @@ func run_probe(m: GroupMember, probe: Dictionary) -> void:
 		_intro_next()
 
 
-func _update_probe_button() -> void:
-	if _probe_button != null and game != null:
-		_probe_button.text = "Proben (%d)" % probes_left()
+# --- Runden ---------------------------------------------------------------------
+
+## In eine Phase der Runde wechseln (Uhrzeit, Knöpfe) und sie beginnen.
+func set_phase(p: String) -> void:
+	game.phase = p
+	save_game()
+	_enter_phase()
+
+
+## Die aktuelle Phase beginnen (auch nach dem Laden).
+func _enter_phase() -> void:
+	if game == null or _busy:
+		return
+	if game.round_number() > int(game.season.get("days", 7)):
+		_show_season_end()
+		return
+	day_night.hour = PHASE_HOURS.get(game.phase, 10.0)
+	day_night.apply_lighting()
+	_update_phase_ui()
+	match game.phase:
+		"rivals":
+			play_rival_turn()
+		"probes":
+			if game.round_offers.is_empty():
+				game.pick_round_offers(tasks)
+		"task":
+			if game.round_offers.is_empty():
+				game.pick_round_offers(tasks)
+			open_task_offers()
+		"evening":
+			_open_evening()
+
+
+## Knöpfe und Anzeigen zur Phase.
+func _update_phase_ui() -> void:
+	if _phase_button == null or game == null:
+		return
+	_phase_button.disabled = false
+	_next_button.visible = true
+	match game.phase:
+		"rivals":
+			_phase_button.text = "Zug der Rivalen …"
+			_phase_button.disabled = true
+			_next_button.visible = false
+		"probes":
+			_phase_button.text = "Probe (%d)" % probes_left()
+			_phase_button.disabled = probes_left() <= 0
+			_next_button.text = "Weiter: Aufgabe ›"
+		"task":
+			_phase_button.text = "Aufgabe wählen"
+			_next_button.text = "Ohne Aufgabe: Abend ›"
+		"evening":
+			_phase_button.text = "Abend"
+			_next_button.text = "Nächste Runde ›" if game.round_number() < int(game.season.get("days", 7)) else "Saison abschließen ›"
+	day_night.hour = PHASE_HOURS.get(game.phase, day_night.hour)
+	day_night.apply_lighting()
+
+
+func _on_phase_button() -> void:
+	if _busy:
+		return
+	match game.phase:
+		"probes":
+			open_probe_panel()
+		"task":
+			open_task_offers()
+		"evening":
+			_open_evening()
+
+
+func _on_next_button() -> void:
+	if _busy:
+		return
+	match game.phase:
+		"probes":
+			set_phase("task")
+		"task":
+			set_phase("evening")
+		"evening":
+			next_round()
+
+
+## Aufgabenwahl mit den Angeboten der Runde.
+func open_task_offers() -> void:
+	_card.visible = false
+	_task_panel.open(game, tasks, null, catalog, game.round_offers)
+
+
+## Zug der Rivalen ausführen (Entscheidungen, Ergebnisse, Anheuern) – ohne Szene.
+## Danach steht die Runde in der Phase „probes“. Rückgabe: [[RivalState, Ereignis]].
+func _apply_rival_turn() -> Array:
+	var events := []
+	for r in game.rivals:
+		for ev in RivalAI.take_turn(game, r, tasks, catalog, _rival_rng):
+			_on_rival_event(r, ev)
+			events.append([r, ev])
+			if ev.type in ["task", "hire"]:
+				game.round_log.append({"who": r.id, "text": ev.text, "earned": int(ev.get("earned", 0)) - int(ev.get("cost", 0))})
+	game.phase = "probes"
+	game.round_offers = []
+	game.pick_round_offers(tasks)
+	_ensure_needed_offer()
+	save_game()
+	return events
+
+
+## Zug der Rivalen als Bühnenszene: ihre Aufgaben laufen ab (Überspringen = Zeitraffer),
+## danach eine Übersicht; dann beginnen die Proben.
+func play_rival_turn() -> void:
+	var events := _apply_rival_turn()
+	_update_phase_ui()
+	var attempts := events.filter(func(e): return e[1].type == "task")
+	if not attempts.is_empty():
+		enter_stage()
+		for e in attempts:
+			var r: RivalState = e[0]
+			var ev: Dictionary = e[1]
+			stage.caption.emit("%s: „%s“" % [r.name, ev.task.name])
+			await stage.wait(1.2)
+			await director.run_task(ev.task, ev.result, ev.assignments, _crossing_depth(ev.task))
+		leave_stage()
+	var lines := []
+	for e in events:
+		var ev: Dictionary = e[1]
+		match str(ev.type):
+			"task":
+				lines.append([ev.text, RoundPanel.GOOD if ev.result.success else RoundPanel.BAD])
+			"hire":
+				lines.append([ev.text, RoundPanel.NOTE])
+	var watched := events.filter(func(e): return e[1].type == "observe").size()
+	if watched > 0:
+		lines.append(["%s beobachteten ihre Tiere (%d×)." % [game.rivals[0].name if not game.rivals.is_empty() else "Die Rivalen", watched], RoundPanel.NOTE])
+	if lines.is_empty():
+		lines.append(["Die Rivalen ruhten sich aus.", RoundPanel.NOTE])
+	lines.append([_standings(), Color(0.95, 0.85, 0.4)])
+	_round_next = func(): _enter_phase()
+	_round_panel.open("Zug der Rivalen", "Runde %d/%d" % [game.round_number(), int(game.season.get("days", 7))], lines,
+			"Weiter zu den Proben ›")
+
+
+func _standings() -> String:
+	var parts := ["Du %d" % game.points]
+	for r in game.rivals:
+		parts.append("%s %d" % [r.name, r.points])
+	return "Stand: " + " · ".join(parts)
+
+
+## Abend: erst die Artfrage (falls eine ansteht), dann die Übersicht der Runde.
+func _open_evening() -> void:
+	_card.visible = false
+	var q := game.species_question()
+	if not q.is_empty() and not game.round_log.any(func(e): return e.get("who", "") == "question"):
+		game.round_log.append({"who": "question", "text": ""})
+		_question.open(game, q.a, q.b)
+		return
+	_show_evening()
+
+
+func _show_evening() -> void:
+	var lines := []
+	var mine := game.round_log.filter(func(e): return e.get("who", "") == "player")
+	if mine.is_empty():
+		lines.append(["Du hast heute keine Aufgabe versucht.", RoundPanel.NOTE])
+	for e in game.round_log:
+		if e.get("text", "") != "" and e.get("who", "") != "question":
+			lines.append([e.text, RoundPanel.GOOD if int(e.get("earned", 0)) > 0 else (RoundPanel.BAD if int(e.get("earned", 0)) < 0 else RoundPanel.NOTE)])
+	lines.append([_standings(), Color(0.95, 0.85, 0.4)])
+	var tired := game.members.filter(func(m): return m.exhausted).size()
+	lines.append(["Über Nacht erholen sich alle%s; die Vorräte wachsen nach." % (" (%d erschöpft)" % tired if tired > 0 else ""), RoundPanel.NOTE])
+	var last := game.round_number() >= int(game.season.get("days", 7))
+	_round_next = next_round
+	_round_panel.open("Abend", "Runde %d/%d" % [game.round_number(), int(game.season.get("days", 7))], lines,
+			"Saison abschließen ›" if last else "Nächste Runde ›", "Noch umsehen")
+
+
+## Runde beenden: Nacht, Erholung; nächste Runde (oder Saisonende).
+func next_round() -> void:
+	if _busy:
+		return
+	_round_panel.visible = false
+	var over := game.end_round()
+	_roll_weather()
+	sync_sites()
+	_update_tags()
+	if over:
+		_show_season_end()
+		return
+	_show_note("Ein neuer Morgen – alle sind ausgeruht.")
+	set_phase("rivals")
+
+
+## Schlusswertung der Saison (auch nach dem Laden, ohne sie doppelt einzutragen).
+func _show_season_end() -> void:
+	_card.visible = false
+	var hist: Array = game.season.get("history", [])
+	var res: Dictionary = hist[-1] if not hist.is_empty() and int(hist[-1].get("number", 0)) == int(game.season.get("number", 1)) \
+			else game.finish_season()
+	_season_panel.open(res)
+	_season_panel.move_to_front()
+	save_game()
+	_update_phase_ui()
+
+
+## Wetter der neuen Runde (meist klar).
+func _roll_weather() -> void:
+	var x := _rival_rng.randf()
+	weather.set_state("rain" if x < 0.12 else ("cloudy" if x < 0.35 else "clear"))
+	game.weather = weather.state
 
 
 # --- Anheuern -----------------------------------------------------------------
@@ -878,9 +1068,7 @@ func hire(offer: GroupMember) -> bool:
 
 func _update_tags() -> void:
 	for c in creatures:
-		if _roles_shown.has(c):
-			c.set_tag("%s: %s" % [_roles_shown[c], _member_of(c).name], TAG_ROLE)
-		elif not show_names or test_creatures.has(c):
+		if not show_names or test_creatures.has(c):
 			c.set_tag("")
 		elif rival_creatures.has(c):
 			var rv: RivalState = rival_creatures[c][0]
@@ -893,33 +1081,6 @@ func _update_tags() -> void:
 			c.set_tag(m.name + (" · erschöpft" if m.exhausted else ""), TAG_TIRED if m.exhausted else TAG_MEMBER)
 
 
-## Beim Übergang über morning_hour (auch über Mitternacht) werden Erschöpfte wieder fit.
-func _check_morning() -> void:
-	if _busy:
-		return
-	var h := day_night.hour
-	if _last_hour >= 0.0:
-		var dh := h - _last_hour
-		if dh < -12.0:
-			dh += 24.0
-		if dh > 0.0:
-			_tick_rivals(dh)
-		var m := float(GameState.progression().get("morning_hour", 6.0)) if _morning_hour < 0.0 else _morning_hour
-		_morning_hour = m
-		# rückwärts um mehr als 12 h = über Mitternacht; kleine Rücksprünge (Aufgaben setzen die Uhrzeit) zählen nicht
-		var wrapped := _last_hour - h > 12.0
-		var crossed := (_last_hour < m and h >= m) or (wrapped and (h >= m or _last_hour < m))
-		if crossed:
-			var rested := game.new_morning()
-			sync_sites()
-			_update_probe_button()
-			_on_new_day()
-			if rested > 0:
-				_update_tags()
-				_show_note("Ein neuer Morgen – alle sind ausgeruht.")
-	_last_hour = h
-
-
 ## Sichtbare Früchte an den Bäumen = Vorrat der Fundstellen.
 func sync_sites() -> void:
 	var cfg := GameState.sites_config()
@@ -929,43 +1090,14 @@ func sync_sites() -> void:
 			terrain.fruit_trees[int(c.tree)].set_visible_fruits(int(game.sites[id]))
 
 
-## Neuer Spieltag: Saison weiterzählen; am Ende Schlusswertung.
-func _on_new_day() -> void:
-	if game.advance_day():
-		_prompt.visible = false
-		_card.visible = false
-		_season_panel.open(game.finish_season())
-		_season_panel.move_to_front()
-		save_game()
-	_update_tags()
-
-
 func _update_score() -> void:
 	var parts := ["Du %d" % game.points]
 	for r in game.rivals:
 		parts.append("%s %d" % [r.name, r.points])
 	_score.text = " · ".join(parts)
-	_season_label.text = "Saison %d · Tag %d/%d · Gegner: %s" % [int(game.season.get("number", 1)),
+	_season_label.text = "Saison %d · Runde %d/%d · Gegner: %s" % [int(game.season.get("number", 1)),
 			mini(int(game.season.get("day", 1)), int(game.season.get("days", 7))), int(game.season.get("days", 7)),
 			RivalState.difficulty(game.difficulty).get("label", game.difficulty)]
-
-
-## Meldung oben rechts (höchstens TICKER_LINES, verblasst nach TICKER_SECONDS).
-func _ticker_add(text: String, color: Color) -> void:
-	var l := _outlined_label()
-	l.text = text
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.custom_minimum_size.x = 340
-	l.add_theme_font_size_override("font_size", 14)
-	l.add_theme_color_override("font_color", color)
-	_ticker.add_child(l)
-	while _ticker.get_child_count() > TICKER_LINES:
-		_ticker.get_child(0).free()
-	var tw := l.create_tween()
-	tw.tween_interval(TICKER_SECONDS)
-	tw.tween_property(l, "modulate:a", 0.0, 1.5)
-	tw.tween_callback(l.queue_free)
 
 
 func _start_next_season(difficulty: String) -> void:
@@ -977,7 +1109,7 @@ func _start_next_season(difficulty: String) -> void:
 	sync_sites()
 	_update_tags()
 	_show_note("Saison %d beginnt – Gegner: %s" % [int(game.season.number), RivalState.difficulty(difficulty).get("label", difficulty)])
-	save_game()
+	set_phase("rivals")
 
 
 func _cycle_difficulty() -> void:
@@ -1019,31 +1151,10 @@ func _camp_point(r: RivalState, m: GroupMember) -> Vector3:
 	return Vector3(r.camp.x, l.height_at(r.camp.x, r.camp.y), r.camp.y)
 
 
-## Spielzeit vorrücken und fällige Rivalen-Aktionen ausführen.
-func _tick_rivals(hours: float) -> void:
-	game.game_hours += hours
-	if _busy or game.rivals.is_empty():
-		return
-	var cfg := RivalState.config()
-	var active: Array = cfg.get("active_hours", [7, 21])
-	var h := day_night.hour
-	if h < float(active[0]) or h > float(active[1]):
-		return
-	var interval := float(RivalState.difficulty(game.difficulty).get("interval_hours", 2.0))
-	for r in game.rivals:
-		if game.game_hours < r.next_action:
-			continue
-		r.next_action = game.game_hours + interval
-		var ev := RivalAI.act(game, r, tasks, catalog, _rival_rng)
-		_on_rival_event(r, ev)
-
-
 func _on_rival_event(r: RivalState, ev: Dictionary) -> void:
 	match str(ev.type):
 		"task":
-			_show_rival_attempt(r, ev)
 			sync_sites()
-			_ticker_add(ev.text, r.color if ev.result.success else Color(1.0, 0.65, 0.5))
 			_update_tags()
 		"hire":
 			var c := creature_of(ev.member)
@@ -1059,46 +1170,7 @@ func _on_rival_event(r: RivalState, ev: Dictionary) -> void:
 			_update_tags()
 			if _hire_panel.visible:
 				_hire_panel.open(game)
-			_ticker_add(ev.text, r.color)
 	_save_pending = true
-
-
-## Der Versuch der Rivalen wird sichtbar: die entscheidende Rolle zeigt ihr Verhalten.
-func _show_rival_attempt(r: RivalState, ev: Dictionary) -> void:
-	var t: TaskDef = ev.task
-	var role_id := ""
-	for rl in t.roles:
-		var e: Dictionary = ev.result.roles.get(rl.id, {})
-		if not e.get("success", false) and not e.get("skipped", false):
-			role_id = rl.id
-			break
-	if role_id == "":
-		role_id = t.roles[0].id
-	var m: GroupMember = ev.assignments.get(role_id)
-	var c := creature_of(m) if m != null else null
-	if c == null or c.scripted:
-		return
-	var outcome := "success" if ev.result.roles.get(role_id, {}).get("success", false) else "fail"
-	var b := brains[creatures.find(c)]
-	var tp := TaskPlayer.new()
-	tp.world = self
-	tp.task = t
-	for step in t.steps:
-		if str(step.get("role", "")) != role_id:
-			continue
-		match str(step.type):
-			"climb_tree":
-				b.force("climb_tree", {"tree": tp._resolve(str(step.place)), "forced_outcome": outcome})
-			"cross_stream":
-				var p = tp._resolve(str(step.place))
-				var pv: Vector3 = p.global_position if p is Node3D else p
-				b.force("swim", {"crossing": Vector2(pv.x, pv.z), "forced_outcome": outcome})
-			"behavior":
-				b.force(str(step.get("behavior", "wander")), {"forced_outcome": outcome})
-			_:
-				continue
-		break
-	tp.free()
 
 
 ## Kurze Einblendung oben (verschwindet nach ein paar Sekunden, nicht während Aufgaben).
@@ -1112,43 +1184,38 @@ func _show_note(text: String, seconds := 3.0) -> void:
 			_banner.visible = false)
 
 
-func _update_prompt(delta: float) -> void:
-	if not _prompt_enabled or tasks == null or tasks.tasks.is_empty() or _busy \
-			or game.intro_step < GameState.INTRO_DONE:
-		_idle = 0.0
-		return
-	for panel in [_task_panel, _journal_panel, _result_panel, _hire_panel, _prompt, _intro, _question, _season_panel,
-			_gallery, _probe_panel]:
-		if panel.visible:
-			_idle = 0.0
-			return
-	_idle += delta
-	if _idle >= _prompt_after:
-		_idle = 0.0
-		var t := suggested_task()
-		_prompt.open(t, game.reward_for(t))
-
-
-## Aufgabe für den Hinweis: die erste noch nicht gelöste, sonst die erste.
-func suggested_task() -> TaskDef:
-	for t in tasks.tasks:
-		if game.tasks.get(t.id, {}).get("successes", 0) == 0:
-			return t
-	return tasks.tasks[0]
-
-
 ## Wassertiefe an der Bachquerung der Aufgabe (für die Wat-Regel).
 func _crossing_depth(task: TaskDef) -> float:
 	for step in task.steps:
 		if step.get("type", "") == "cross_stream":
-			var tp := TaskPlayer.new()
-			tp.world = self
-			tp.task = task
-			var p: Vector3 = tp._resolve(str(step.place))
-			tp.free()
+			var p := task_point(task, str(step.place))
 			var l := terrain.layout
 			return l.water_level_at(p.x, p.z) - l.height_at(p.x, p.z)
 	return 0.6
+
+
+## Ort einer Aufgabe im Gelände (Namen aus task.places: "fruit_tree:0", "rock:largest",
+## "stream_near:<ort>", "point:x,z"; sonst der Lagerplatz).
+func task_point(task: TaskDef, place_name: String) -> Vector3:
+	var l := terrain.layout
+	var parts := str(task.places.get(place_name, place_name)).split(":")
+	match parts[0]:
+		"fruit_tree":
+			return terrain.fruit_trees[clampi(int(parts[1]), 0, terrain.fruit_trees.size() - 1)].global_position
+		"rock":
+			var best: Dictionary = l.rocks[0]
+			for r in l.rocks:
+				if parts.size() > 1 and parts[1] == "largest" and r.size > best.size:
+					best = r
+			return Vector3(best.pos.x, l.height_at(best.pos.x, best.pos.y), best.pos.y)
+		"stream_near":
+			var ref := task_point(task, parts[1])
+			var c: Vector2 = l.stream_info(ref.x, ref.z).closest
+			return Vector3(c.x, l.water_level_at(c.x, c.y), c.y)
+		"point":
+			var xz := parts[1].split(",")
+			return Vector3(float(xz[0]), l.height_at(float(xz[0]), float(xz[1])), float(xz[1]))
+	return Vector3(l.spawn_pos.x, l.height_at(l.spawn_pos.x, l.spawn_pos.y), l.spawn_pos.y)
 
 
 # --- HUD ----------------------------------------------------------------------
@@ -1171,10 +1238,17 @@ func _build_hud() -> void:
 	var bar := HBoxContainer.new()
 	root.add_child(bar)
 	_button(bar, "Journal", func(): _card.visible = false; _journal_panel.open(game))
-	_button(bar, "Aufgaben", func(): _card.visible = false; _task_panel.open(game, tasks, null, catalog))
 	_button(bar, "Anheuern", func(): _card.visible = false; _hire_panel.open(game))
-	_probe_button = _button(bar, "Proben", open_probe_panel)
 	var more := _button(bar, "Optionen", Callable())
+	_phase_button = _button(bar, "Probe", _on_phase_button)
+	_phase_button.custom_minimum_size.x = 150
+	_next_button = _button(bar, "Weiter ›", _on_next_button)
+	_next_button.custom_minimum_size.x = 190
+	var hi := StyleBoxFlat.new()
+	hi.bg_color = Color(0.25, 0.42, 0.22, 0.92)
+	hi.set_corner_radius_all(8)
+	hi.set_content_margin_all(8)
+	_next_button.add_theme_stylebox_override("normal", hi)
 	_credits = _outlined_label()
 	_credits.add_theme_font_size_override("font_size", 20)
 	_credits.add_theme_color_override("font_color", Color(0.95, 0.85, 0.4))
@@ -1182,13 +1256,11 @@ func _build_hud() -> void:
 	_credits.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	bar.add_child(_credits)
 
-	# Optionen (eingeklappt): Zeit, Wetter, Namen, Textgröße, Debug
+	# Optionen (eingeklappt): Gegner, Ton, Namen, Textgröße, Debug
 	var opts := HBoxContainer.new()
 	opts.visible = false
 	root.add_child(opts)
 	more.pressed.connect(func(): opts.visible = not opts.visible)
-	_time_button = _button(opts, "Tempo ×1", _cycle_time)
-	_wait_button = _button(opts, "Warten …", wait_until_next)
 	_difficulty_button = _button(opts, "Gegner: " + str(RivalState.difficulty(game.difficulty).get("label", game.difficulty)), _cycle_difficulty)
 	var snd := _button(opts, "Ton: an" if Sound.is_enabled() else "Ton: aus", Callable())
 	snd.pressed.connect(func():
@@ -1229,7 +1301,7 @@ func _build_hud() -> void:
 	_info = _outlined_label()
 	root.add_child(_info)
 
-	# Punktestand und Meldungen der Rivalen (oben rechts)
+	# Punktestand (oben rechts)
 	var score_box := VBoxContainer.new()
 	score_box.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	score_box.offset_left = -360
@@ -1247,9 +1319,7 @@ func _build_hud() -> void:
 	_score.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_score.add_theme_font_size_override("font_size", 20)
 	score_box.add_child(_score)
-	_ticker = VBoxContainer.new()
-	_ticker.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	score_box.add_child(_ticker)
+	_score_box = score_box
 
 	# Einblendung der Aufgabenschritte (oben mittig, groß)
 	_banner = _outlined_label()
@@ -1314,11 +1384,17 @@ func _build_hud() -> void:
 	_season_panel = SeasonPanel.new()
 	_season_panel.next_season.connect(_start_next_season)
 	ui.add_child(_season_panel)
+	# nach der Aufgabe geht es zum Abend (Artfrage, Übersicht)
 	_result_panel.closed.connect(func():
-		var q := game.species_question()
-		if not q.is_empty():
-			_question.open(game, q.a, q.b))
-	_question.closed.connect(func(): save_game())
+		if game.phase == "evening":
+			_enter_phase())
+	_question.closed.connect(func():
+		save_game()
+		if game.phase == "evening":
+			_show_evening())
+	_round_panel = RoundPanel.new()
+	_round_panel.primary.connect(func(): _round_next.call())
+	ui.add_child(_round_panel)
 	_hire_panel = HirePanel.new()
 	_hire_panel.show_requested.connect(func(o):
 		var c := creature_of(o)
@@ -1327,16 +1403,12 @@ func _build_hud() -> void:
 			camera.distance = 7.0)
 	_hire_panel.hire_requested.connect(hire)
 	ui.add_child(_hire_panel)
-	_prompt = TaskPrompt.new()
-	_prompt.accepted.connect(func(t): _card.visible = false; _task_panel.open(game, tasks, t, catalog))
-	_prompt.later.connect(func(): _prompt_after = PROMPT_AGAIN)
-	_prompt.never.connect(func():
-		_prompt_enabled = false
-		UiSettings.set_value("task_prompt", false))
-	ui.add_child(_prompt)
 	_intro = IntroPanel.new()
 	_intro.started.connect(func(): game.intro_step = 1; _intro_show())
-	_intro.skipped.connect(func(): game.intro_step = GameState.INTRO_DONE; _banner.visible = false)
+	_intro.skipped.connect(func():
+		game.intro_step = GameState.INTRO_DONE
+		_banner.visible = false
+		_enter_phase())
 	ui.add_child(_intro)
 
 
@@ -1351,23 +1423,6 @@ func _outlined_label() -> Label:
 	l.add_theme_color_override("font_outline_color", Color.BLACK)
 	l.add_theme_constant_override("outline_size", 4)
 	return l
-
-
-func _cycle_time() -> void:
-	set_tempo(_time_index + 1)
-
-
-## Zeit bis zum nächsten Abend (tagsüber) bzw. Morgen (abends/nachts) vorspulen.
-## Manches zeigt sich erst in der Dunkelheit; am Morgen sind alle ausgeruht.
-func wait_until_next() -> void:
-	if _busy:
-		return
-	var h := day_night.hour
-	var target := EVENING_HOUR if h >= MORNING_WAKE and h < EVENING_HOUR else MORNING_WAKE
-	var step := fposmod(target - h, 24.0)
-	var tw := create_tween()
-	tw.tween_method(func(t: float): day_night.hour = fposmod(h + step * t, 24.0), 0.0, 1.0, 1.5)
-	_show_note("Es wird Abend …" if target == EVENING_HOUR else "Die Nacht vergeht …", 1.8)
 
 
 # --- Debug --------------------------------------------------------------------
@@ -1429,9 +1484,9 @@ func debug_rate(spec: String) -> void:
 	_select(creatures[int(p[0])])
 
 
-## "journal", "tasks", "hire", "probes" oder "prompt" öffnen (Screenshots).
+## "journal", "tasks", "hire", "probes" oder "evening" öffnen (Screenshots).
 func debug_open(panel_name: String) -> void:
-	for panel in [_card, _task_panel, _journal_panel, _result_panel, _hire_panel, _prompt, _gallery, _probe_panel]:
+	for panel in [_card, _task_panel, _journal_panel, _result_panel, _hire_panel, _gallery, _probe_panel, _round_panel]:
 		panel.visible = false
 	match panel_name:
 		"probes":
@@ -1440,11 +1495,10 @@ func debug_open(panel_name: String) -> void:
 			_journal_panel.open(game)
 		"hire":
 			_hire_panel.open(game)
-		"prompt":
-			var t := suggested_task()
-			_prompt.open(t, game.reward_for(t))
+		"evening":
+			_show_evening()
 		"tasks":
-			_task_panel.open(game, tasks, null, catalog)
+			open_task_offers()
 
 
 ## Oberflächen-Skalierung erzwingen (Screenshots in Handy-Größe).
@@ -1488,20 +1542,18 @@ func debug_card_expand(on: bool) -> void:
 	_card.set_expanded(on)
 
 
-## Rivalen sofort handeln lassen; n Mal (Screenshots).
-func debug_rival_act(n: int) -> void:
-	var r: RivalState = game.rivals[0]
-	for m in r.members:
-		for a in catalog.order:
-			r.set_belief(m.id, a, catalog.base_value(a, m.genome))
-	for i in n:
-		_on_rival_event(r, RivalAI.act(game, r, tasks, catalog, _rival_rng))
-
-
 ## Saison sofort beenden (Screenshots).
 func debug_season_end() -> void:
 	game.season.day = game.season.days
-	_on_new_day()
+	next_round()
+
+
+## "phase" – Phase setzen und beginnen (Screenshots, Tests); "rivals" spielt den Zug der Rivalen.
+func debug_phase(p: String) -> void:
+	debug_open("none")
+	_intro.visible = false
+	game.intro_step = GameState.INTRO_DONE
+	set_phase(p)
 
 
 ## Kamera auf das Lager der Rivalen (Screenshots).

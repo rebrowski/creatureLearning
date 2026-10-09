@@ -4,7 +4,6 @@ extends RefCounted
 ##   scale        "auto" oder Faktor (1.0 … 2.0) für Schrift und Knöpfe
 ##   show_names   Namensschilder über den Kreaturen (Standard: an)
 ##   sound        Geräusche und Vibration (Standard: an)
-##   task_prompt  Hinweis „Aufgabe starten?“ nach einer Weile ohne Eingabe (Standard: an)
 ##
 ## "auto" richtet sich nach der Bildschirmgröße: Die Oberfläche ist für
 ## 1280×720 ausgelegt; auf kleinen Bildschirmen (Handy) wäre sie ohne
@@ -42,10 +41,6 @@ static func show_names() -> bool:
 
 static func sound_on() -> bool:
 	return bool(get_value("sound", true))
-
-
-static func task_prompt() -> bool:
-	return bool(get_value("task_prompt", true))
 
 
 ## Gespeicherte Einstellung: "auto" oder Faktor als Text.

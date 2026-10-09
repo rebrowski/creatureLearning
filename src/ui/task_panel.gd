@@ -1,10 +1,9 @@
 class_name TaskPanel
 extends Control
-## Aufgabenwahl: Aufgabe aussuchen, Rollen besetzen, starten.
+## Aufgabenwahl: eines der Angebote der Runde aussuchen, Rollen besetzen, starten.
 ##
-## Rollen besetzt man nicht über Namenslisten, sondern in der Welt: Tippt man
-## auf einen Rollenplatz, schließt sich das Panel (pick_requested) und die Welt
-## wartet auf das Antippen einer Kreatur; danach öffnet sie das Panel wieder
+## Tippt man auf einen Rollenplatz, schließt sich das Panel (pick_requested) und
+## die Welt öffnet die Galerie; nach der Wahl öffnet sie das Panel wieder
 ## (assign). Neben dem Namen steht die eigene Einschätzung der wichtigsten
 ## Fähigkeit der Rolle. Gesperrte Aufgaben zeigen, was sie freischaltet.
 
@@ -17,6 +16,8 @@ var catalog: TaskCatalog
 var abilities: AbilityCatalog
 var _selected: TaskDef
 var _choice: Dictionary = {}  # role_id -> member_id
+## Nur diese Aufgaben (IDs) anbieten; leer = alle.
+var _only: Array = []
 
 
 func _init() -> void:
@@ -25,17 +26,24 @@ func _init() -> void:
 
 
 ## task: diese Aufgabe vorauswählen (null = zuletzt gewählte bzw. erste offene).
-func open(p_game: GameState, p_catalog: TaskCatalog, task: TaskDef = null, p_abilities: AbilityCatalog = null) -> void:
+## only: Angebote der Runde (IDs); leer = alle Aufgaben.
+func open(p_game: GameState, p_catalog: TaskCatalog, task: TaskDef = null, p_abilities: AbilityCatalog = null,
+		only: Array = []) -> void:
 	game = p_game
 	catalog = p_catalog
 	if p_abilities != null:
 		abilities = p_abilities
+	if not only.is_empty():
+		_only = only
 	if task != null and task != _selected:
 		_selected = task
 		_choice.clear()
+	if _selected != null and not _listed(_selected):
+		_selected = null
+		_choice.clear()
 	if _selected == null:
 		for t in catalog.tasks:
-			if game.task_unlocked(t):
+			if game.task_unlocked(t) and _listed(t):
 				_selected = t
 				break
 	# Besetzungen verwerfen, die nicht mehr gültig sind (erschöpft, nicht mehr da)
@@ -62,6 +70,10 @@ func selected_task() -> TaskDef:
 	return _selected
 
 
+func _listed(t: TaskDef) -> bool:
+	return _only.is_empty() or _only.has(t.id)
+
+
 func _build() -> void:
 	UiUtil.clear(self)
 	var panel := UiUtil.overlay(self, Vector2(980, 600))
@@ -70,8 +82,10 @@ func _build() -> void:
 	var left := VBoxContainer.new()
 	left.custom_minimum_size = Vector2(250, 0)
 	root.add_child(left)
-	left.add_child(UiUtil.label("Aufgaben", 26))
+	left.add_child(UiUtil.label("Angebote" if not _only.is_empty() else "Aufgaben", 26))
 	for t in catalog.tasks:
+		if not _listed(t):
+			continue
 		var st: Dictionary = game.tasks.get(t.id, {})
 		var open_ := game.task_unlocked(t)
 		var mark := " ✓" if st.get("successes", 0) > 0 else ("  (%d×)" % st.attempts if st.get("attempts", 0) > 0 else "")
@@ -83,6 +97,8 @@ func _build() -> void:
 		left.add_child(b)
 	left.add_child(Control.new())
 	left.get_child(left.get_child_count() - 1).size_flags_vertical = Control.SIZE_EXPAND_FILL
+	if not _only.is_empty():
+		left.add_child(UiUtil.label("Eine Aufgabe pro Runde.", 14, Color(1, 1, 1, 0.6)))
 	left.add_child(UiUtil.button("Schließen", func(): visible = false; closed.emit(), Vector2(240, 48)))
 
 	var right := VBoxContainer.new()
@@ -106,7 +122,7 @@ func _build() -> void:
 	var site := game.site_text(_selected)
 	if site != "":
 		right.add_child(UiUtil.label(site, 16, Color(0.75, 0.9, 1.0) if game.site_stock(_selected) > 0 else Color(1, 0.7, 0.5)))
-	right.add_child(UiUtil.label("Rollen – tippe auf einen Platz und dann auf eine Kreatur", 18, Color(0.8, 0.95, 0.6)))
+	right.add_child(UiUtil.label("Rollen – tippe auf einen Platz und wähle unten eine Kreatur", 18, Color(0.8, 0.95, 0.6)))
 	for r in _selected.roles:
 		right.add_child(_role_row(r))
 	var problem := _problem()
@@ -168,7 +184,7 @@ static func main_ability(r: Dictionary) -> String:
 
 func _problem() -> String:
 	if game.site_stock(_selected) == 0:
-		return "Hier gibt es gerade nichts zu holen – morgen wieder."
+		return "Hier gibt es gerade nichts zu holen – nächste Runde wieder."
 	var used := {}
 	for r in _selected.roles:
 		if not _choice.has(r.id):

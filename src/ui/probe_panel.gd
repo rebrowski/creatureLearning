@@ -1,7 +1,7 @@
 class_name ProbePanel
 extends Control
 ## Proben-Auswahl: acht Proben, je eine Fähigkeit. Nach der Wahl öffnet die Welt
-## die Galerie, um die Kreatur zu bestimmen. Pro Tag sind nur wenige Proben
+## die Galerie, um die Kreatur zu bestimmen. Pro Runde sind nur wenige Proben
 ## möglich (ForestWorld.PROBES_PER_DAY).
 
 signal probe_chosen(probe: Dictionary)
@@ -22,10 +22,10 @@ func open(probes: ProbeCatalog, abilities: AbilityCatalog, left: int) -> void:
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(t)
 	head.add_child(UiUtil.button("✕", func(): visible = false; closed.emit(), Vector2(52, 44)))
-	var info := "Heute noch %d %s. Eine Probe zeigt genau eine Fähigkeit in vier Stufen (○○○ bis ●●●)." % [
+	var info := "In dieser Runde noch %d %s. Eine Probe zeigt genau eine Fähigkeit in vier Stufen (○○○ bis ●●●)." % [
 			left, "Probe" if left == 1 else "Proben"]
 	if left <= 0:
-		info = "Für heute sind alle Proben verbraucht – morgen früh geht es weiter."
+		info = "Für diese Runde sind alle Proben verbraucht – weiter geht es mit der Aufgabe."
 	box.add_child(UiUtil.label(info, 15, Color(1, 1, 1, 0.75)))
 	var grid := GridContainer.new()
 	grid.columns = 2

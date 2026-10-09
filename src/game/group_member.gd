@@ -16,7 +16,7 @@ var morphs: Dictionary = {}
 var joined_after := 0
 ## Preis zum Anheuern (nur bei Fremden, sonst 0).
 var price := 0
-## Nach einer gescheiterten Aufgabe bis zum nächsten Morgen nicht einsetzbar.
+## Nach einer gescheiterten Aufgabe bis zur nächsten Runde nicht einsetzbar.
 var exhausted := false
 
 

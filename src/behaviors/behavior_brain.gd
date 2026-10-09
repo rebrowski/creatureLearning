@@ -95,7 +95,7 @@ func update(delta: float) -> void:
 			return
 		_end_current()
 	if paused:
-		# Aufgaben steuern die Kreatur dann selbst (TaskPlayer setzt desired_velocity)
+		# Aufgaben steuern die Kreatur dann selbst (Skripte setzen desired_velocity)
 		return
 	_choose()
 

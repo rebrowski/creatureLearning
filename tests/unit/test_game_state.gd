@@ -293,3 +293,57 @@ func test_pending_task_is_saved() -> void:
 	var loaded := GameState.new()
 	loaded._from_dict(JSON.parse_string(JSON.stringify(gs.to_dict())))
 	assert_eq(loaded.pending_task.task, "fruit_from_tree", "laufende Aufgabe übersteht einen Neustart")
+
+
+func test_round_offers_and_end_of_round() -> void:
+	var gs := GameState.new_game()
+	var cat := AbilityCatalog.load_file(gs.schema)
+	var tc := TaskCatalog.load_dir(cat)
+	assert_eq(gs.phase, "rivals", "eine Runde beginnt mit dem Zug der Rivalen")
+	var offers := gs.pick_round_offers(tc)
+	assert_between(offers.size(), 1, GameState.OFFERS_PER_ROUND)
+	assert_eq(offers[0], "fruit_from_tree", "ungelöste Aufgaben der Kette zuerst")
+	for id in offers:
+		assert_true(gs.task_unlocked(tc.get_task(id)), "%s ist freigeschaltet" % id)
+	gs.members[0].exhausted = true
+	gs.probes_today = 2
+	gs.phase = "evening"
+	gs.round_log.append({"who": "player", "text": "x", "earned": 5})
+	assert_false(gs.end_round())
+	assert_eq(gs.round_number(), 2)
+	assert_eq(gs.phase, "rivals")
+	assert_true(gs.round_offers.is_empty())
+	assert_true(gs.round_log.is_empty())
+	assert_eq(gs.probes_today, 0, "neue Runde: neue Proben")
+	assert_false(gs.members[0].exhausted, "über Nacht erholt")
+	gs.season.day = gs.season.days
+	assert_true(gs.end_round(), "nach der letzten Runde ist die Saison vorbei")
+
+
+func test_round_state_is_saved() -> void:
+	var gs := GameState.new_game()
+	gs.phase = "task"
+	gs.round_offers = ["fruit_from_tree"]
+	gs.round_log = [{"who": "player", "text": "Du: …", "earned": 30}]
+	gs.probes_today = 1
+	var loaded := GameState.new()
+	loaded._from_dict(JSON.parse_string(JSON.stringify(gs.to_dict())))
+	assert_eq(loaded.phase, "task")
+	assert_eq(loaded.round_offers, ["fruit_from_tree"])
+	assert_eq(loaded.round_log.size(), 1)
+	assert_eq(loaded.probes_today, 1)
+
+
+func test_rival_turn_has_several_actions_but_one_task() -> void:
+	var gs := GameState.new_game()
+	var cat := AbilityCatalog.load_file(gs.schema)
+	var tc := TaskCatalog.load_dir(cat)
+	var r: RivalState = gs.rivals[0]
+	for m in r.members:
+		for a in cat.order:
+			r.set_belief(m.id, a, cat.base_value(a, m.genome))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 5
+	var events := RivalAI.take_turn(gs, r, tc, cat, rng)
+	assert_eq(events.size(), int(RivalState.difficulty(gs.difficulty).actions_per_round), "alle Aktionen des Zugs")
+	assert_lte(events.filter(func(e): return e.type == "task").size(), int(RivalState.difficulty(gs.difficulty).tasks_per_round))
