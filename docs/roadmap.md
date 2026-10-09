@@ -144,3 +144,25 @@ kommt immer nach); Schwierigkeit wählbar und adaptiv (nach dominanten Saisonsie
   danach oft neu (gemessen: kein Speicherwachstum, ~70 MB WebAssembly-Speicher nach 3 Minuten).
 - Geräusche nur noch von der Kreatur im Fokus (ausgewählt, verfolgt oder in der Aufgabe am Zug),
   wenn sie im Bild und höchstens 30 m entfernt ist.
+
+## M11 – Bühne, Proben und Galerie (1.1.0)
+Grund: Ergebnisse waren im Gelände schwer zu sehen (Wittern, Nachtsicht), Kreaturen musste man
+zusammensuchen, Aufgaben dauerten zu lange.
+- Bühne (`src/stage/`): beleuchtete Lichtung abseits des Lagers mit eigener Kamera; nur die
+  Beteiligten, schon am Startpunkt. Acht Requisiten mit abgestuftem Beweis-Moment (0–3), siehe
+  `docs/tasks_format.md`. Nachts: dunkler Himmel, Scheinwerfer.
+- Proben (`data/stage/probes.json`) statt Köder: 2 pro Tag, Ergebnis im Journal (○○○ … ●●●) und
+  im Protokoll; die Leiste zeigt danach gleich die Einschätzungs-Knöpfe dieser Fähigkeit.
+- Aufgaben laufen als Abschnitte auf der Bühne (je Rolle ihr Beweis-Moment), „Überspringen“ als
+  Zeitraffer; während der Bühne ist die obere Leiste ausgeblendet und die Uhr steht.
+- Galerie-Leiste für Proben und Rollenwahl (ersetzt Blättern in der Welt und den Filter
+  „In der Nähe“); Fremde werden beim Wählen angeheuert.
+- Einführung: Kletterprobe statt Köder am Baum.
+- Entfernt: Köder (`Bait`, `SeekBehavior`, `bait_cost`), Knöpfe „Tempo“ und „◎ Zur Aufgabe“
+  während Aufgaben.
+
+## M12 – Rundenstruktur (2.0, geplant)
+Saison = 7 Runden mit je 4 Phasen: Zug der Rivalen (als Bühnenszene, überspringbar) → 2 Proben →
+eigene Aufgabe (Wahl aus 2–3 Angeboten, Rollen aus der Galerie) → Abend (Ergebnisse, Artfrage,
+Punkte, Erholung, „Nächste Runde“). Die durchlaufende Uhr, Tempo, Warten und der Aufgaben-Hinweis
+entfallen; das Lager bleibt zum freien Zuschauen.

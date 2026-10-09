@@ -1,11 +1,10 @@
 extends Node3D
 
-## Ein Köder-Experiment ist vorbei (alle Kreaturen haben es versucht).
-signal bait_resolved(bait_kind: String, got_it: String)
 ## Wurzel der Waldwelt: verbindet Gelände, Navigation, Tageszeit, Wetter und
 ## Kamera, lädt den Spielstand (oder startet ein neues Spiel), setzt die Gruppe
 ## und die Fremden am Waldrand ein, protokolliert Beobachtungen, führt Aufgaben
-## durch und verwaltet das Anheuern.
+## auf der Bühne (Stage, abseits des Lagers) durch, ebenso die Proben, und
+## verwaltet das Anheuern.
 ##
 ## Die Szene (scenes/world/forest.tscn) wird von tools/build_forest.gd erzeugt;
 ## Knoten werden über ihre Namen gefunden.
@@ -34,10 +33,12 @@ const TAG_MEMBER := Color(1, 1, 1)
 const TAG_STRANGER := Color(1.0, 0.75, 0.35)
 const TAG_ROLE := Color(1.0, 0.92, 0.45)
 const TAG_TIRED := Color(0.7, 0.7, 0.8)
-## Köder: so weit reagieren Kreaturen, höchstens so viele probieren es.
-const BAIT_RADIUS := 14.0
-const BAIT_MAX_TRIALS := 3
-## Zeitraffer für „Überspringen“ (schon gesehene Aufgaben).
+## Die Bühne liegt weit außerhalb des Geländes (64 × 64 m), damit man von dort
+## nichts vom Lager sieht und umgekehrt.
+const STAGE_ORIGIN := Vector3(0.0, 0.0, 600.0)
+## Proben pro Tag
+const PROBES_PER_DAY := 2
+## Zeitraffer für „Überspringen“.
 const SKIP_SPEED := 6.0
 ## Rivalen streifen in diesem Umkreis um ihr Lager.
 const RIVAL_ROAM := 9.0
@@ -45,8 +46,6 @@ const TICKER_LINES := 3
 ## Geräusche der Kreatur im Fokus sind bis zu dieser Kameradistanz hörbar (Meter).
 const SOUND_DISTANCE := 30.0
 const TICKER_SECONDS := 9.0
-## Rollenwahl-Filter „In der Nähe“: Umkreis um den Ort der Aufgabe (Meter).
-const NEAR_RADIUS := 15.0
 ## Kamera-Verschiebung je Leistenhöhe (1 = Kreatur genau mittig im freien Bereich;
 ## etwas weniger, damit sie nicht unter die Knöpfe oben rutscht).
 const VIEW_SHIFT_FACTOR := 0.7
@@ -55,7 +54,6 @@ const PAST := {
 	"climb_rock": "kletterte auf einen Felsen", "climb_tree": "kletterte auf einen Baum",
 	"swim": "ging ins Wasser", "dig": "grub ein Loch", "carry": "wollte einen Stein tragen",
 	"call": "rief laut", "sniff": "witterte", "rest": "ruhte sich aus", "display": "drohte",
-	"seek": "suchte eine Beere",
 }
 const OUTCOME := {"success": " – hat geklappt", "fail": " – hat nicht geklappt", "": ""}
 
@@ -89,6 +87,8 @@ var test_creatures: Array[Creature] = []
 
 var _status: Label
 var _info: Label
+## obere Leiste (Status, Knöpfe) – auf der Bühne ausgeblendet
+var _hud_top: Control
 var _time_button: Button
 var _wait_button: Button
 var _time_index := 0
@@ -103,8 +103,6 @@ var _question: SpeciesQuestionPanel
 var _intro_timer := 0.0
 var _intro_ratings := 0
 var _banner: Label
-var _fast: Button
-var _focus: Button
 var _skip: Button
 var _skipping := false
 var _credits: Label
@@ -122,15 +120,19 @@ var _prompt_after := PROMPT_IDLE
 var _prompt_enabled := true
 ## Creature -> Rollenname, solange eine Aufgabe läuft
 var _roles_shown: Dictionary = {}
-## Rollenwahl durch Antippen: {"task": TaskDef, "role": String} oder leer
-var _picking: Dictionary = {}
-## Köder-Modus: nächstes Antippen legt eine Beere aus
-var _baiting := false
-var _bait_button: Button
-## laufende Köder-Versuche: [{"brain", "behavior"}]; bait_resolved, wenn alle fertig sind
-var _bait_trials: Array = []
-var _bait_info: Dictionary = {}
-var _player: TaskPlayer
+## true, solange auf der Bühne etwas läuft (Probe, Aufgabe)
+var _busy := false
+var stage: Stage
+var director: StageDirector
+var probe_catalog: ProbeCatalog
+var _gallery: GalleryBar
+var _probe_panel: ProbePanel
+var _probe_button: Button
+## Wofür die Galerie gerade offen ist: {"probe": Dictionary} oder {"task": TaskDef, "role": String};
+## "last": Name der zuletzt geprüften Kreatur (für die Einführung)
+var _gallery_for: Dictionary = {}
+## Uhrzeit der Welt, während die Bühne nachts spielt
+var _saved_hour := -1.0
 var _history_seen: Dictionary = {}  # BehaviorBrain -> Anzahl bereits gesehener Einträge
 var _autosave := AUTOSAVE_SECONDS
 var _save_pending := false
@@ -172,6 +174,7 @@ func _ready() -> void:
 	game.journal.changed.connect(func(): _save_pending = true)
 	show_names = UiSettings.show_names()
 	_prompt_enabled = UiSettings.task_prompt()
+	_build_stage()
 	_build_hud()
 	for i in game.members.size():
 		_spawn_member(game.members[i], _spawn_point(l, i))
@@ -182,12 +185,12 @@ func _ready() -> void:
 	_spawn_items(l)
 	_update_tags()
 	sync_sites()
-	bait_resolved.connect(_on_bait_resolved)
 	game.journal.changed.connect(func():
 		if game.intro_step == 2 and _rating_count() > _intro_ratings:
 			_intro_next())
 	if game.intro_step < GameState.INTRO_DONE:
 		_intro_show.call_deferred()
+	_update_probe_button()
 	_resume_pending_task.call_deferred()
 	_hook_web_save()
 
@@ -232,7 +235,6 @@ func _physics_process(delta: float) -> void:
 	for b in brains:
 		b.update(delta)
 	_separate(delta)
-	_check_bait_trials()
 	_observe()
 	_autosave -= delta
 	if _autosave <= 0.0 or (_save_pending and _autosave < AUTOSAVE_SECONDS - 3.0):
@@ -269,7 +271,7 @@ func _process(delta: float) -> void:
 	_status.text = "%02d:%02d %s · Wetter %s · Gruppe: %d%s" % [
 		int(h), int(fposmod(h, 1.0) * 60.0), PHASE_LABELS[day_night.phase()], WEATHER_LABELS[weather.state],
 		game.members.size(), extra]
-	if _player != null and _player.running:
+	if _busy:
 		_info.text = ""
 	elif selected != null and _member_of(selected) != null:
 		_info.text = "%s: %s" % [_member_of(selected).name, selected.behavior_label if selected.behavior_label != "" else "…"]
@@ -435,13 +437,7 @@ func _observe() -> void:
 
 
 func _on_tap(pos: Vector2) -> void:
-	if _player != null and _player.running:
-		return
-	if not _picking.is_empty():
-		_pick_at(pos)
-		return
-	if _baiting:
-		place_bait_at_screen(pos)
+	if _busy:
 		return
 	_select(creature_at(pos))
 
@@ -461,7 +457,7 @@ func creature_at(pos: Vector2) -> Creature:
 
 
 # --- Einführung ------------------------------------------------------------------
-## 0 Begrüßung · 1 Köder an den Fruchtbaum · 2 Einschätzung festhalten ·
+## 0 Begrüßung · 1 erste Probe (Klettern) · 2 Einschätzung festhalten ·
 ## 3 erste Aufgabe öffnen. Danach INTRO_DONE.
 
 func _intro_show() -> void:
@@ -469,25 +465,13 @@ func _intro_show() -> void:
 		0:
 			_intro.open()
 		1:
-			var tree: FruitTree = terrain.fruit_trees[0]
-			camera.follow = null
-			camera.target = tree.global_position
-			camera.distance = 11.0
-			# ein paar Gruppenmitglieder in die Nähe des Baums holen, damit der Köder wirkt
-			var n := 0
-			for c in members:
-				if n >= 4:
-					break
-				var a := TAU * n / 4.0 + 0.4
-				c.global_position = tree.global_position + Vector3(cos(a), 0.0, sin(a)) * (4.0 + n * 0.7)
-				c.locomotion.reset(c.global_transform)
-				n += 1
-			_intro_banner("Hoch im Baum hängt eine Frucht. Wer von euch kommt hinauf?
-Tippe auf „Köder“ und dann an den Baumstamm – wer die Beere holt, zeigt, was er kann.")
+			_intro_banner("Wer von euch kommt einen Baum hinauf? Auf der Lichtung steht ein Stamm mit zwei Ringen und einer Frucht. Wähle unten eine Kreatur für die Kletterprobe.")
+			open_probe(probe_catalog.get_probe("climb"))
 		2:
 			_intro_timer = 0.0
 			_intro_ratings = _rating_count()
-			_intro_banner("Gut beobachtet! Tippe die Kreatur an, die hinaufkam, und halte unter „Meine Einschätzung“ bei Klettern fest, was du gesehen hast.")
+			var who := str(_gallery_for.get("last", ""))
+			_intro_banner("Gut beobachtet! Halte unten fest, wie gut %s klettert: – schwach, o mittel, + stark." % (who if who != "" else "sie"))
 		3:
 			game.intro_step = GameState.INTRO_DONE
 			_banner.visible = false
@@ -513,260 +497,6 @@ func _intro_banner(text: String) -> void:
 func _intro_next() -> void:
 	game.intro_step += 1
 	_intro_show()
-
-
-func _on_bait_resolved(kind: String, who: String) -> void:
-	if who != "":
-		_show_note("%s hat die Beere geholt." % who)
-	else:
-		_show_note("Niemand hat die Beere erreicht.")
-	if game.intro_step == 1:
-		get_tree().create_timer(2.0).timeout.connect(_intro_next)
-
-
-# --- Köder ----------------------------------------------------------------------
-
-func _toggle_bait_mode() -> void:
-	if _player != null:
-		return
-	_baiting = not _baiting
-	if _baiting:
-		var cost := int(GameState.progression().get("bait_cost", 1))
-		if game.credits < cost:
-			_baiting = false
-			_show_note("Kein Guthaben für einen Köder.")
-			return
-		_card.visible = false
-		_banner.text = "Tippe auf den Boden, ins Wasser oder an einen Baumstamm."
-		_banner.visible = true
-	else:
-		_banner.visible = false
-	_bait_button.text = "Abbrechen" if _baiting else "Köder"
-
-
-## Bildschirmpunkt → Köder in der Welt (Boden, Bach oder Baumstamm).
-func place_bait_at_screen(pos: Vector2) -> void:
-	var from := camera.project_ray_origin(pos)
-	var q := PhysicsRayQueryParameters3D.create(from, from + camera.project_ray_normal(pos) * 200.0, terrain.ground_layer)
-	var hit := get_world_3d().direct_space_state.intersect_ray(q)
-	if hit.is_empty():
-		return
-	place_bait(hit.position)
-
-
-## Köder an einer Weltposition auslegen. Rückgabe: der Köder (oder null).
-func place_bait(p: Vector3) -> Bait:
-	var l := terrain.layout
-	var cost := int(GameState.progression().get("bait_cost", 1))
-	if game.credits < cost:
-		return null
-	var bait := Bait.new()
-	var tree: FruitTree = null
-	for t in terrain.fruit_trees:
-		if Vector2(t.global_position.x - p.x, t.global_position.z - p.z).length() < 2.0:
-			tree = t
-	var pos := Vector3(p.x, l.height_at(p.x, p.z), p.z)
-	if tree != null:
-		bait.kind = "tree"
-		var out := Vector3(p.x - tree.global_position.x, 0.0, p.z - tree.global_position.z)
-		out = out.normalized() if out.length() > 0.01 else Vector3.FORWARD
-		pos = tree.global_position + out * 0.4 + Vector3.UP * minf(tree.fruit_height * 0.75, 3.5)
-	elif l.zone_at(p.x, p.z) == "water":
-		bait.kind = "water"
-		var c: Vector2 = l.stream_info(p.x, p.z).closest
-		pos = Vector3(c.x, l.water_level_at(c.x, c.y) - 0.05, c.y)
-	creature_root.add_child(bait)
-	bait.global_position = pos
-	game.credits -= cost
-	_baiting = false
-	_bait_button.text = "Köder"
-	_banner.visible = false
-	_start_bait_trials(bait, tree)
-	return bait
-
-
-## Bis zu BAIT_MAX_TRIALS nahe Kreaturen versuchen, die Beere zu holen.
-func _start_bait_trials(bait: Bait, tree: FruitTree) -> void:
-	var near: Array = []
-	for i in creatures.size():
-		var c := creatures[i]
-		var m := _member_of(c)
-		if c.scripted or test_creatures.has(c) or (m != null and m.exhausted):
-			continue
-		var d := c.global_position.distance_to(bait.global_position)
-		if d < BAIT_RADIUS:
-			near.append([d, i])
-	near.sort_custom(func(a, b): return a[0] < b[0])
-	_bait_trials.clear()
-	_bait_info = {"kind": bait.kind, "who": ""}
-	bait.taken.connect(func(c: Creature): _bait_info.who = _member_of(c).name if _member_of(c) != null else "")
-	for entry in near.slice(0, BAIT_MAX_TRIALS):
-		var b := brains[entry[1]]
-		if bait.kind == "tree" and _bait_trials.size() >= 2:
-			break  # am Stamm ist nur für zwei Platz
-		var id := "seek"
-		var p := {"bait": bait}
-		match bait.kind:
-			"tree":
-				id = "climb_tree"
-				p["tree"] = tree
-				p["top_wait"] = 1.0
-			"water":
-				id = "swim"
-				p["crossing"] = Vector2(bait.global_position.x, bait.global_position.z)
-		b.force(id, p)
-		_bait_trials.append({"brain": b, "behavior": b.current, "bait": bait})
-	if _bait_trials.is_empty():
-		_show_note("Niemand ist in der Nähe – leg den Köder näher an die Kreaturen.")
-	else:
-		camera.follow = null
-		camera.target = bait.global_position
-
-
-func _check_bait_trials() -> void:
-	if _bait_trials.is_empty():
-		return
-	for t in _bait_trials:
-		if t.brain.current == t.behavior:
-			return
-	_bait_trials.clear()
-	bait_resolved.emit(_bait_info.get("kind", ""), _bait_info.get("who", ""))
-
-
-# --- Rollen durch Antippen besetzen -------------------------------------------
-
-func _begin_pick(task: TaskDef, role_id: String) -> void:
-	_picking = {"task": task, "role": role_id, "filter": "group", "list": [], "index": 0}
-	_refresh_pick_list()
-	_show_pick()
-
-
-func _end_pick(reopen := true) -> void:
-	var task: TaskDef = _picking.get("task")
-	_picking = {}
-	_card.visible = false
-	_banner.visible = false
-	if reopen and task != null:
-		_task_panel.open(game, tasks, task, catalog)
-
-
-## Kandidaten je Filter: "group" (fitte zuerst), "strangers", "near" (um den Ort der Aufgabe).
-func _refresh_pick_list() -> void:
-	var list: Array[Creature] = []
-	match str(_picking.filter):
-		"strangers":
-			for o in game.offers:
-				var c := creature_of(o)
-				if c != null:
-					list.append(c)
-		"near":
-			var place := _task_place(_picking.task)
-			for c in browse_order():
-				if c.global_position.distance_to(place) < NEAR_RADIUS:
-					list.append(c)
-			list.sort_custom(func(a, b): return a.global_position.distance_to(place) < b.global_position.distance_to(place))
-		_:
-			var tired: Array[Creature] = []
-			for m in game.members:
-				var c := creature_of(m)
-				if c == null:
-					continue
-				if m.exhausted:
-					tired.append(c)
-				else:
-					list.append(c)
-			list.append_array(tired)
-	_picking.list = list
-	_picking.index = 0
-
-
-func _show_pick() -> void:
-	var list: Array = _picking.list
-	var task: TaskDef = _picking.task
-	var role: Dictionary = task.role(_picking.role)
-	var info := {"role": role.name, "filter": _picking.filter, "index": _picking.index, "count": list.size()}
-	if not list.is_empty():
-		var c: Creature = list[_picking.index]
-		var m := _member_of(c)
-		var stranger := strangers.has(c)
-		var ability := TaskPanel.main_ability(role)
-		var rating := game.journal.rating(m.id, ability)
-		info.member = m
-		info.stranger = stranger
-		info.rating = "%s: %s (deine Einschätzung)" % [catalog.name_of(ability), Journal.RATING_LABELS[rating]] if rating >= 0 \
-				else "%s: noch nicht eingeschätzt" % catalog.name_of(ability)
-		info.problem = ""
-		if stranger:
-			info.action = "Anheuern und wählen (%d)" % m.price
-			info.problem = game.hire_problem(m)
-		else:
-			info.action = "Als %s wählen" % role.name
-			if m.exhausted:
-				info.problem = "Erschöpft – ruht bis morgen früh."
-		selected = c
-		camera.follow = c
-		camera.distance = clampf(camera.distance, 4.0, 9.0)
-	_card.show_pick(info, game.journal, catalog)
-
-
-func _cycle_pick(direction: int) -> void:
-	var list: Array = _picking.list
-	if list.is_empty():
-		return
-	_picking.index = posmod(int(_picking.index) + direction, list.size())
-	_show_pick()
-
-
-func _confirm_pick() -> void:
-	var list: Array = _picking.list
-	if list.is_empty():
-		return
-	var c: Creature = list[_picking.index]
-	if strangers.has(c):
-		if not hire(strangers[c]):
-			return
-	pick_creature(c)
-
-
-## Ort, an dem eine Aufgabe beginnt (für den Filter „In der Nähe“).
-func _task_place(task: TaskDef) -> Vector3:
-	var tp := TaskPlayer.new()
-	tp.world = self
-	tp.task = task
-	var p: Vector3 = Vector3(terrain.layout.spawn_pos.x, 0.0, terrain.layout.spawn_pos.y)
-	for step in task.steps:
-		if step.has("place"):
-			var r = tp._resolve(str(step.place))
-			p = r.global_position if r is Node3D else r
-			break
-	tp.free()
-	return p
-
-
-func _pick_at(pos: Vector2) -> void:
-	var c := creature_at(pos)
-	if c == null:
-		return
-	# angetippte Kreatur in der Leiste zeigen (bestätigen mit dem Knopf)
-	if not _picking.list.has(c):
-		_picking.filter = "strangers" if strangers.has(c) else "group"
-		_refresh_pick_list()
-	_picking.index = maxi(0, _picking.list.find(c))
-	_show_pick()
-
-
-## Kreatur für die gerade gewählte Rolle übernehmen. true = besetzt.
-func pick_creature(c: Creature) -> bool:
-	if strangers.has(c):
-		return false
-	var m: GroupMember = members.get(c)
-	if m == null or test_creatures.has(c):
-		return false
-	if m.exhausted:
-		return false
-	_task_panel.assign(_picking.role, m, _picking.task)
-	_end_pick()
-	return true
 
 
 func _select(c: Creature) -> void:
@@ -808,30 +538,13 @@ func start_task(task: TaskDef, assignments: Dictionary) -> void:
 		ids[role_id] = assignments[role_id].id
 	game.pending_task = {"task": task.id, "assignments": ids, "result": _json_safe(result)}
 	save_game()
-	var actors := {}
-	var names := {}
 	var role_names := {}
 	for role_id in assignments:
-		var c := creature_of(assignments[role_id])
-		actors[role_id] = c
-		names[c] = assignments[role_id].name
 		role_names[role_id] = assignments[role_id].name
-	_card.visible = false
-	_roles_shown.clear()
-	for role_id in actors:
-		_roles_shown[actors[role_id]] = task.role(role_id).name
-		actors[role_id].priority = 2
-	_update_tags()
-	_fast.visible = true
-	_focus.visible = true
-	_skip.visible = game.tasks.get(task.id, {}).get("attempts", 0) > 0
-	_player = TaskPlayer.new()
-	add_child(_player)
-	_player.step_started.connect(func(t):
-		_banner.text = t
-		_banner.visible = t != "")
-	_player.finished.connect(_on_task_finished.bind(task, role_names, assignments), CONNECT_ONE_SHOT)
-	_player.play(self, task, result, actors, names)
+	enter_stage()
+	await director.run_task(task, result, assignments, _crossing_depth(task))
+	leave_stage()
+	_on_task_finished(result, task, role_names, assignments)
 
 
 static func _json_safe(result: Dictionary) -> Dictionary:
@@ -890,16 +603,7 @@ func _on_task_finished(result: Dictionary, task: TaskDef, role_names: Dictionary
 	if result.success:
 		_ensure_needed_offer()
 	save_game()
-	if _player != null:
-		_player.queue_free()
-	_player = null
 	_banner.visible = false
-	_fast.visible = false
-	_focus.visible = false
-	_skip.visible = false
-	if _skipping:
-		_skipping = false
-		set_tempo(_time_index)
 	for c in _roles_shown:
 		if is_instance_valid(c):
 			c.priority = 0
@@ -915,7 +619,9 @@ func is_sound_focus(source: Node) -> bool:
 	var c := source as Creature
 	if c == null or not c.visible:
 		return false
-	var focused := c == selected or c == camera.follow or (_player != null and c == _player.active)
+	if _busy:
+		return stage.actors.has(c)
+	var focused := c == selected or c == camera.follow
 	if not focused:
 		return false
 	if camera.is_position_behind(c.global_position) or c.global_position.distance_to(camera.global_position) > SOUND_DISTANCE:
@@ -931,14 +637,6 @@ func _update_view_shift() -> void:
 		camera.view_shift = _card.height_fraction() * VIEW_SHIFT_FACTOR
 	else:
 		camera.view_shift = 0.0
-
-
-## Kamera zur Kreatur, die in der laufenden Aufgabe gerade am Zug ist.
-func focus_active() -> void:
-	if _player == null or _player.active == null or not is_instance_valid(_player.active):
-		return
-	camera.follow = _player.active
-	camera.distance = clampf(camera.distance, 5.0, 9.0)
 
 
 ## Reihenfolge beim Durchblättern: Gruppe (wie im Spielstand), dann Fremde.
@@ -957,9 +655,6 @@ func browse_order() -> Array[Creature]:
 
 ## Nächste (+1) bzw. vorherige (-1) Kreatur auswählen.
 func cycle_selection(direction: int) -> void:
-	if not _picking.is_empty():
-		_cycle_pick(direction)
-		return
 	var list := browse_order()
 	if list.is_empty():
 		return
@@ -974,7 +669,6 @@ func set_tempo(index: int) -> void:
 	debug_speed(scale)
 	var text := "Pause" if scale == 0.0 else ("Tempo ×%s" % String.num(scale, 1).trim_suffix(".0"))
 	_time_button.text = text
-	_fast.text = "» " + text
 
 
 ## Unter den Fremden muss jemand sein, der eine fehlende Rolle übernehmen kann.
@@ -1000,6 +694,158 @@ func _despawn(c: Creature) -> void:
 	if selected == c:
 		_select(null)
 	c.queue_free()
+
+
+# --- Bühne, Proben und Galerie -------------------------------------------------
+
+func _build_stage() -> void:
+	stage = Stage.new()
+	stage.name = "Stage"
+	add_child(stage)
+	stage.position = STAGE_ORIGIN
+	stage.build(terrain.ground_layer)
+	stage.visible = false
+	stage.caption.connect(func(text: String):
+		_banner.text = text
+		_banner.visible = true)
+	probe_catalog = ProbeCatalog.load_file()
+	director = StageDirector.new(stage, catalog, probe_catalog, set_stage_night)
+
+
+## Zur Bühne wechseln: eigene Kamera, Uhr steht, nur „Überspringen“ sichtbar.
+func enter_stage() -> void:
+	_busy = true
+	for panel in [_card, _task_panel, _journal_panel, _hire_panel, _prompt, _gallery, _probe_panel]:
+		panel.visible = false
+	day_night.set_process(false)
+	weather.auto_change = false
+	stage.visible = true
+	stage.camera.current = true
+	_hud_top.visible = false
+	_banner.offset_top = 12
+	_skip.visible = true
+	_skipping = false
+
+
+## Zurück ins Lager.
+func leave_stage() -> void:
+	stage.clear()
+	stage.visible = false
+	camera.make_current()
+	day_night.set_process(true)
+	weather.auto_change = true
+	_hud_top.visible = true
+	_banner.offset_top = 150
+	_skip.visible = false
+	_banner.visible = false
+	if _skipping:
+		_skipping = false
+		set_tempo(_time_index)
+	_busy = false
+
+
+## Bühne nachts spielen lassen: Himmel wie um 23 Uhr, Scheinwerfer an.
+func set_stage_night(on: bool) -> void:
+	if on and _saved_hour < 0.0:
+		_saved_hour = day_night.hour
+		day_night.hour = 23.0
+	elif not on and _saved_hour >= 0.0:
+		day_night.hour = _saved_hour
+		_saved_hour = -1.0
+	day_night.apply_lighting()
+	stage.set_night(on)
+
+
+func probes_left() -> int:
+	return maxi(0, PROBES_PER_DAY - game.probes_today)
+
+
+func open_probe_panel() -> void:
+	if _busy:
+		return
+	_card.visible = false
+	_probe_panel.open(probe_catalog, catalog, probes_left())
+
+
+## Probe gewählt → in der Galerie die Kreatur bestimmen.
+func open_probe(probe: Dictionary) -> void:
+	if probe.is_empty() or probes_left() <= 0:
+		return
+	_card.visible = false
+	_gallery_for = {"probe": probe, "last": _gallery_for.get("last", "")}
+	_gallery.open("%s: Wer soll es versuchen?" % probe.name, _gallery_group(), [], game.journal, catalog, str(probe.ability))
+
+
+## Rollenwahl aus der Galerie (statt in der Welt suchen); Fremde sind dabei.
+func open_role_gallery(task: TaskDef, role_id: String) -> void:
+	var role := task.role(role_id)
+	_card.visible = false
+	_gallery_for = {"task": task, "role": role_id, "last": _gallery_for.get("last", "")}
+	_gallery.open("Wähle: %s" % role.name, _gallery_group(), game.offers.duplicate(), game.journal, catalog,
+			TaskPanel.main_ability(role), true)
+
+
+## Gruppe für die Galerie: fitte zuerst, Erschöpfte hinten.
+func _gallery_group() -> Array:
+	var fit := []
+	var tired := []
+	for m in game.members:
+		if m.exhausted:
+			tired.append(m)
+		else:
+			fit.append(m)
+	return fit + tired
+
+
+func _on_gallery_chosen(m: GroupMember) -> void:
+	var g := _gallery_for
+	if g.has("probe"):
+		run_probe(m, g.probe)
+	elif g.has("task"):
+		if game.offers.has(m) and not hire(m):
+			_show_note(game.hire_problem(m) if game.hire_problem(m) != "" else "Anheuern nicht möglich.")
+			_task_panel.open(game, tasks, g.task, catalog)
+			return
+		_task_panel.assign(g.role, m, g.task)
+		_task_panel.open(game, tasks, g.task, catalog)
+
+
+func _on_gallery_cancelled() -> void:
+	if _gallery_for.has("task"):
+		_task_panel.open(game, tasks, _gallery_for.task, catalog)
+	elif game.intro_step == 1:
+		# Einführung: ohne Probe weiter zur Einschätzung
+		_intro_next()
+
+
+## Probe auf der Bühne abspielen und das Ergebnis im Journal festhalten.
+func run_probe(m: GroupMember, probe: Dictionary) -> void:
+	if _busy or probes_left() <= 0:
+		return
+	var trial := int(game.journal.probes.get(m.id, {}).size()) + game.probes_today * 7 + int(game.season.get("day", 1)) * 31
+	var g := probe_catalog.grade(m, probe, catalog, trial)
+	game.probes_today += 1
+	game.journal.set_probe(m.id, str(probe.ability), g)
+	var h := day_night.hour
+	game.journal.add_log("%02d:%02d" % [int(h), int(fposmod(h, 1.0) * 60.0)], m.id,
+			"%s: %s %s" % [probe.name, probe_catalog.result_text(probe, g), Journal.grade_dots(g)])
+	_gallery_for.last = m.name
+	save_game()
+	enter_stage()
+	await director.run_probe(m, probe, g)
+	leave_stage()
+	_update_probe_button()
+	var c := creature_of(m)
+	if c != null:
+		_select(c)
+		_card.show_quick(str(probe.ability))
+	if game.intro_step == 1:
+		_intro_next()
+
+
+func _update_probe_button() -> void:
+	if _probe_button != null and game != null:
+		_probe_button.text = "Proben (%d)" % probes_left()
 
 
 # --- Anheuern -----------------------------------------------------------------
@@ -1049,6 +895,8 @@ func _update_tags() -> void:
 
 ## Beim Übergang über morning_hour (auch über Mitternacht) werden Erschöpfte wieder fit.
 func _check_morning() -> void:
+	if _busy:
+		return
 	var h := day_night.hour
 	if _last_hour >= 0.0:
 		var dh := h - _last_hour
@@ -1064,6 +912,7 @@ func _check_morning() -> void:
 		if crossed:
 			var rested := game.new_morning()
 			sync_sites()
+			_update_probe_button()
 			_on_new_day()
 			if rested > 0:
 				_update_tags()
@@ -1173,7 +1022,7 @@ func _camp_point(r: RivalState, m: GroupMember) -> Vector3:
 ## Spielzeit vorrücken und fällige Rivalen-Aktionen ausführen.
 func _tick_rivals(hours: float) -> void:
 	game.game_hours += hours
-	if _player != null or game.rivals.is_empty():
+	if _busy or game.rivals.is_empty():
 		return
 	var cfg := RivalState.config()
 	var active: Array = cfg.get("active_hours", [7, 21])
@@ -1254,21 +1103,22 @@ func _show_rival_attempt(r: RivalState, ev: Dictionary) -> void:
 
 ## Kurze Einblendung oben (verschwindet nach ein paar Sekunden, nicht während Aufgaben).
 func _show_note(text: String, seconds := 3.0) -> void:
-	if _player != null:
+	if _busy:
 		return
 	_banner.text = text
 	_banner.visible = true
 	get_tree().create_timer(seconds, true, false, true).timeout.connect(func():
-		if _player == null and _banner.text == text:
+		if not _busy and _banner.text == text:
 			_banner.visible = false)
 
 
 func _update_prompt(delta: float) -> void:
-	if not _prompt_enabled or tasks == null or tasks.tasks.is_empty() or _player != null or not _picking.is_empty() \
+	if not _prompt_enabled or tasks == null or tasks.tasks.is_empty() or _busy \
 			or game.intro_step < GameState.INTRO_DONE:
 		_idle = 0.0
 		return
-	for panel in [_task_panel, _journal_panel, _result_panel, _hire_panel, _prompt, _intro, _question, _season_panel]:
+	for panel in [_task_panel, _journal_panel, _result_panel, _hire_panel, _prompt, _intro, _question, _season_panel,
+			_gallery, _probe_panel]:
 		if panel.visible:
 			_idle = 0.0
 			return
@@ -1315,6 +1165,7 @@ func _build_hud() -> void:
 	var root := VBoxContainer.new()
 	root.position = Vector2(12, 8)
 	ui.add_child(root)
+	_hud_top = root
 	_status = _outlined_label()
 	root.add_child(_status)
 	var bar := HBoxContainer.new()
@@ -1322,7 +1173,7 @@ func _build_hud() -> void:
 	_button(bar, "Journal", func(): _card.visible = false; _journal_panel.open(game))
 	_button(bar, "Aufgaben", func(): _card.visible = false; _task_panel.open(game, tasks, null, catalog))
 	_button(bar, "Anheuern", func(): _card.visible = false; _hire_panel.open(game))
-	_bait_button = _button(bar, "Köder", _toggle_bait_mode)
+	_probe_button = _button(bar, "Proben", open_probe_panel)
 	var more := _button(bar, "Optionen", Callable())
 	_credits = _outlined_label()
 	_credits.add_theme_font_size_override("font_size", 20)
@@ -1419,46 +1270,21 @@ func _build_hud() -> void:
 	_banner.offset_top = 150
 	_banner.visible = false
 	ui.add_child(_banner)
-	_fast = UiUtil.button("» Tempo ×1", _cycle_time, Vector2(170, 48))
-	_fast.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
-	_fast.offset_left = -190
-	_fast.offset_top = -64
-	_fast.offset_right = -20
-	_fast.offset_bottom = -16
-	_fast.visible = false
-	ui.add_child(_fast)
-	_focus = UiUtil.button("◎ Zur Aufgabe", focus_active, Vector2(190, 48))
-	_focus.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
-	_focus.offset_left = -400
-	_focus.offset_top = -64
-	_focus.offset_right = -210
-	_focus.offset_bottom = -16
-	_focus.visible = false
-	ui.add_child(_focus)
 	_skip = UiUtil.button("Überspringen", func():
 		_skipping = true
 		_skip.visible = false
 		debug_speed(SKIP_SPEED), Vector2(170, 48))
 	_skip.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
-	_skip.offset_left = -590
+	_skip.offset_left = -190
 	_skip.offset_top = -64
-	_skip.offset_right = -420
+	_skip.offset_right = -20
 	_skip.offset_bottom = -16
 	_skip.visible = false
 	ui.add_child(_skip)
 
 	_card = CreatureCard.new()
 	_card.visible = false
-	_card.closed.connect(func():
-		if not _picking.is_empty():
-			_end_pick()
-		else:
-			_select(null))
-	_card.pick_confirmed.connect(_confirm_pick)
-	_card.filter_changed.connect(func(f):
-		_picking.filter = f
-		_refresh_pick_list()
-		_show_pick())
+	_card.closed.connect(func(): _select(null))
 	_card.visibility_changed.connect(_update_view_shift)
 	_card.layout_changed.connect(func(_e): _update_view_shift())
 	_card.hire_requested.connect(hire)
@@ -1472,8 +1298,15 @@ func _build_hud() -> void:
 	ui.add_child(_journal_panel)
 	_task_panel = TaskPanel.new()
 	_task_panel.start_requested.connect(start_task)
-	_task_panel.pick_requested.connect(_begin_pick)
+	_task_panel.pick_requested.connect(open_role_gallery)
 	ui.add_child(_task_panel)
+	_probe_panel = ProbePanel.new()
+	_probe_panel.probe_chosen.connect(open_probe)
+	ui.add_child(_probe_panel)
+	_gallery = GalleryBar.new()
+	_gallery.chosen.connect(_on_gallery_chosen)
+	_gallery.cancelled.connect(_on_gallery_cancelled)
+	ui.add_child(_gallery)
 	_result_panel = ResultPanel.new()
 	ui.add_child(_result_panel)
 	_question = SpeciesQuestionPanel.new()
@@ -1527,7 +1360,7 @@ func _cycle_time() -> void:
 ## Zeit bis zum nächsten Abend (tagsüber) bzw. Morgen (abends/nachts) vorspulen.
 ## Manches zeigt sich erst in der Dunkelheit; am Morgen sind alle ausgeruht.
 func wait_until_next() -> void:
-	if _player != null:
+	if _busy:
 		return
 	var h := day_night.hour
 	var target := EVENING_HOUR if h >= MORNING_WAKE and h < EVENING_HOUR else MORNING_WAKE
@@ -1596,11 +1429,13 @@ func debug_rate(spec: String) -> void:
 	_select(creatures[int(p[0])])
 
 
-## "journal", "tasks", "hire" oder "prompt" öffnen (Screenshots).
+## "journal", "tasks", "hire", "probes" oder "prompt" öffnen (Screenshots).
 func debug_open(panel_name: String) -> void:
-	for panel in [_card, _task_panel, _journal_panel, _result_panel, _hire_panel, _prompt]:
+	for panel in [_card, _task_panel, _journal_panel, _result_panel, _hire_panel, _prompt, _gallery, _probe_panel]:
 		panel.visible = false
 	match panel_name:
+		"probes":
+			open_probe_panel()
 		"journal":
 			_journal_panel.open(game)
 		"hire":
@@ -1632,19 +1467,20 @@ func debug_intro(step: int) -> void:
 	_intro_show()
 
 
-## Köder am Fruchtbaum i auslegen (Screenshots).
-func debug_bait_tree(i: int) -> void:
-	var t: FruitTree = terrain.fruit_trees[i]
-	place_bait(t.global_position + Vector3(0.5, 0, 0.5))
-
-
 ## Rollenwahl für Rolle i der Aufgabe öffnen (Screenshots).
 func debug_pick(spec: String) -> void:
 	var p := spec.split(":")
 	var t := tasks.get_task(p[0])
 	debug_open("none")
 	game.intro_step = GameState.INTRO_DONE
-	_begin_pick(t, t.roles[int(p[1])].id)
+	open_role_gallery(t, t.roles[int(p[1])].id)
+
+
+## "probe_id:index" – Probe mit Gruppenmitglied Nummer index sofort spielen (Screenshots, Tests).
+func debug_probe(spec: String) -> void:
+	var p := spec.split(":")
+	debug_open("none")
+	run_probe(game.members[int(p[1])], probe_catalog.get_probe(p[0]))
 
 
 ## Kreaturen-Leiste auf- oder zuklappen (Screenshots).

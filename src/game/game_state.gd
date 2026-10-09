@@ -48,6 +48,8 @@ var asked_pairs: Dictionary = {}
 ## Einführung: 0 = noch nicht begonnen … INTRO_DONE = fertig/übersprungen.
 var intro_step := 0
 const INTRO_DONE := 99
+## Proben auf der Bühne an diesem Tag (begrenzt, setzt sich morgens zurück)
+var probes_today := 0
 var errors: PackedStringArray = []
 
 
@@ -113,7 +115,7 @@ func to_dict() -> Dictionary:
 			"identified": identified.keys(), "asked_pairs": asked_pairs.keys(), "sites": sites,
 			"season": season, "difficulty": difficulty, "points": points, "season_tasks": season_tasks,
 			"rivals": rivals.map(func(r): return r.to_dict()), "game_hours": game_hours,
-			"pending_task": pending_task}
+			"pending_task": pending_task, "probes_today": probes_today}
 
 
 func _from_dict(d: Variant) -> void:
@@ -154,6 +156,7 @@ func _from_dict(d: Variant) -> void:
 	else:
 		start_season(1)  # ältere Spielstände: erste Saison beginnt jetzt
 	pending_task = d.get("pending_task", {})
+	probes_today = int(d.get("probes_today", 0))
 	refill_sites()
 	var saved_sites: Dictionary = d.get("sites", {})
 	for k in saved_sites:
@@ -361,6 +364,7 @@ func new_morning() -> int:
 	for id in sites:
 		var c: Dictionary = cfg.get(id, {})
 		sites[id] = mini(int(c.get("stock", sites[id])), int(sites[id]) + int(c.get("regrow", 1)))
+	probes_today = 0
 	var n := 0
 	for m in members:
 		if m.exhausted:

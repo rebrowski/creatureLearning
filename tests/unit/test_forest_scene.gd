@@ -174,43 +174,79 @@ func test_tempo_speeds_up_everything() -> void:
 	assert_eq(Engine.time_scale, 1.0)
 
 
-func test_pick_roles_by_tapping() -> void:
+func test_pick_roles_from_gallery() -> void:
 	var t: TaskDef = world.tasks.tasks[0]
 	var role: String = t.roles[0].id
-	world._begin_pick(t, role)
 	var tired: GroupMember = world.game.members[1]
 	tired.exhausted = true
-	assert_false(world.pick_creature(world.creature_of(tired)), "Erschöpfte können nicht")
-	if not world.strangers.is_empty():
-		assert_false(world.pick_creature(world.strangers.keys()[0]), "Fremde erst anheuern")
-	assert_true(world.pick_creature(world.creature_of(world.game.members[0])))
-	assert_true(world._picking.is_empty())
+	world.open_role_gallery(t, role)
+	assert_true(world._gallery.visible, "Galerie offen")
+	assert_eq(world._gallery.focus_ability, TaskPanel.main_ability(t.role(role)))
+	var group: Array = world._gallery_group()
+	assert_eq(group.size(), world.game.members.size())
+	assert_eq(group[-1], tired, "Erschöpfte stehen hinten")
+	world._gallery.chosen.emit(world.game.members[0])
 	assert_true(world._task_panel.visible, "Panel wieder offen")
 	assert_eq(world._task_panel._choice[role], world.game.members[0].id)
 	tired.exhausted = false
 	world._task_panel.visible = false
 
 
-func test_bait_starts_trials() -> void:
-	var tree: FruitTree = world.terrain.fruit_trees[0]
-	var c: Creature = world.creatures[0]
-	c.global_position = tree.global_position + Vector3(3, 0, 0)
-	world.game.credits = 20
-	var credits: int = world.game.credits
-	var bait: Bait = world.place_bait(tree.global_position + Vector3(0.5, 0, 0))
-	assert_not_null(bait)
-	assert_eq(bait.kind, "tree")
-	assert_eq(world.game.credits, credits - 1, "Köder kostet eine Beere")
-	assert_false(world._bait_trials.is_empty(), "Kreaturen in der Nähe probieren es")
-	assert_eq(world._bait_trials[0].behavior.id, "climb_tree")
-	var l: ForestLayout = world.terrain.layout
-	var s: Vector2 = l.stream_info(tree.global_position.x, tree.global_position.z).closest
-	var w: Bait = world.place_bait(Vector3(s.x, 0, s.y))
-	assert_eq(w.kind, "water")
-	for t in world._bait_trials:
-		assert_eq(t.behavior.id, "swim")
-		t.brain.stop_current()
-	world._bait_trials.clear()
+func test_gallery_cards_show_only_own_knowledge() -> void:
+	var m: GroupMember = world.game.members[0]
+	var gb: GalleryBar = world._gallery
+	gb.journal = world.game.journal
+	gb.abilities = world.catalog
+	gb.focus_ability = "climb"
+	var lines: Array = gb.card_lines(m)
+	assert_string_contains(lines[0][0], "?", "noch nicht eingeschätzt")
+	assert_eq(lines[1][0], "noch nicht geprüft")
+	world.game.journal.set_probe(m.id, "climb", 2)
+	world.game.journal.set_rating(m.id, "climb", 2)
+	lines = gb.card_lines(m)
+	assert_string_contains(lines[1][0], "●●○")
+	assert_false(lines[0][0].contains("?"))
+	if not world.game.offers.is_empty():
+		var o: GroupMember = world.game.offers[0]
+		var sl: Array = gb.card_lines(o, true)
+		assert_string_contains(sl[-1][0], str(o.price), "Fremde zeigen den Preis")
+	world.game.journal.ratings.erase(m.id)
+	world.game.journal.probes.erase(m.id)
+
+
+func test_probe_runs_on_stage_and_is_recorded() -> void:
+	var m: GroupMember = world.game.members[0]
+	var probe: Dictionary = world.probe_catalog.get_probe("dig")
+	world.game.probes_today = 0
+	world.open_probe_panel()
+	assert_true(world._probe_panel.visible)
+	world.open_probe(probe)
+	assert_true(world._gallery.visible, "Probe → Galerie")
+	world._gallery.visible = false
+	var cam: Camera3D = world.get_viewport().get_camera_3d()
+	Engine.time_scale = 8.0
+	world.run_probe(m, probe)
+	assert_true(world._busy)
+	assert_true(world.stage.camera.current, "Bühnenkamera aktiv")
+	await get_tree().process_frame
+	assert_eq(world.stage.actors.size(), 1, "nur die Beteiligte auf der Bühne")
+	var t := 0.0
+	while world._busy and t < 20.0:
+		await get_tree().process_frame
+		t += get_process_delta_time() / Engine.time_scale
+	Engine.time_scale = 1.0
+	assert_false(world._busy, "Probe endet")
+	assert_eq(world.get_viewport().get_camera_3d(), cam, "zurück ins Lager")
+	assert_true(world.stage.actors.is_empty())
+	assert_between(world.game.journal.probe(m.id, "dig"), 0, 3)
+	assert_eq(world.game.probes_today, 1)
+	assert_eq(world._probe_button.text, "Proben (%d)" % (world.PROBES_PER_DAY - 1))
+	world.game.probes_today = world.PROBES_PER_DAY
+	world.run_probe(m, probe)
+	assert_false(world._busy, "keine Probe mehr übrig")
+	world.game.probes_today = 0
+	world.game.journal.probes.erase(m.id)
+	world._select(null)
 
 
 func test_wait_jumps_to_evening() -> void:
@@ -219,26 +255,6 @@ func test_wait_jumps_to_evening() -> void:
 	await get_tree().create_timer(2.0).timeout
 	assert_almost_eq(world.day_night.hour, world.EVENING_HOUR, 0.2)
 	world.day_night.hour = 10.0
-
-
-func test_pick_by_browsing_with_filters() -> void:
-	var t: TaskDef = world.tasks.tasks[0]
-	world._begin_pick(t, t.roles[0].id)
-	assert_true(world._card.visible)
-	assert_eq(world._card.mode, "pick")
-	assert_eq(world._picking.list.size(), world.game.members.size(), "Filter Gruppe: alle Mitglieder")
-	var first: Creature = world._picking.list[0]
-	world.cycle_selection(1)
-	assert_ne(world._picking.list[world._picking.index], first, "‹ › blättert in der Rollenwahl")
-	assert_eq(world.camera.follow, world._picking.list[world._picking.index], "Kamera folgt")
-	world._card.filter_changed.emit("strangers")
-	for c in world._picking.list:
-		assert_true(world.strangers.has(c), "Filter Fremde")
-	world._card.filter_changed.emit("group")
-	world._confirm_pick()
-	assert_true(world._picking.is_empty())
-	assert_true(world._task_panel._choice.has(t.roles[0].id), "Rolle besetzt")
-	world._task_panel.visible = false
 
 
 func test_card_sits_at_bottom_and_shifts_camera() -> void:

@@ -18,9 +18,9 @@ var elapsed := 0.0
 var outcome := ""
 ## Anmarsch aufgegeben (Ziel nicht erreichbar).
 var timed_out := false
-## Vorgaben beim Erzwingen (Aufgaben, Köder): "forced_outcome" ("success"/"fail"),
+## Vorgaben beim Erzwingen (Rivalen-Versuche, Tests): "forced_outcome" ("success"/"fail"),
 ## "speed" (Tempo-Faktor) und verhaltensspezifische Ziele (z. B. "tree",
-## "crossing", "bait"). Leer bei freier Wahl.
+## "crossing"). Leer bei freier Wahl.
 var params: Dictionary = {}
 
 

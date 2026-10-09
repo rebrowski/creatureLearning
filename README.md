@@ -43,12 +43,15 @@ Esc / Android-Zurück geht auch).
 - **Waldwelt** (`scenes/world/forest.tscn`) – das eigentliche Spiel: Gelände mit Bach, Lichtung,
   Felsen und Fruchtbäumen, Tag/Nacht (8 min pro Tag), Wetter. Ein neues Spiel beginnt mit einer
   kurzen Einführung und 6 Kreaturen (3 Arten, zwei davon Doppelgänger).
-  - **Köder** (1 Beere) an Baum, Bach oder Boden legen: Kreaturen in der Nähe versuchen, die
-    Beere zu holen, und zeigen dabei, was sie können.
-  - **Kreatur antippen** → Leiste unten mit vermuteter Art, Einschätzung (▲ ausklappen), Beobachtungen; ‹ › blättert durch alle Kreaturen.
-  - **Aufgaben** → Aufgabe wählen, Rollenplatz antippen, in der Leiste unten mit ‹ › die Kreatur wählen (Filter Gruppe / Fremde / In der Nähe),
-    starten. Jeder Versuch kostet Proviant, der erste Versuch zahlt doppelt, wer scheitert, ist bis
-    morgen erschöpft. 9 Aufgaben werden nacheinander frei.
+  - **Proben** (2 pro Tag): Probe wählen (Klettern, Bach, Spüren, Nacht, Graben, Tragen, Rufen, Mut),
+    dann in der Galerie die Kreatur. Auf der beleuchteten **Bühne** zeigt sie in einem eindeutigen
+    Moment, wie weit sie kommt (Stufe ○○○ bis ●●●); danach gleich die eigene Einschätzung festhalten.
+  - **Kreatur antippen** → Leiste unten mit vermuteter Art, Einschätzung (▲ ausklappen), Proben, Beobachtungen; ‹ › blättert durch alle Kreaturen.
+  - **Aufgaben** → Aufgabe wählen, Rollenplatz antippen, in der **Galerie** unten die Kreatur wählen
+    (Karten mit Bild, eigener Einschätzung und Probenergebnis; Filter Gruppe / Fremde), starten. Die
+    Aufgabe läuft auf der Bühne Abschnitt für Abschnitt ab („Überspringen“ = Zeitraffer). Jeder Versuch
+    kostet Proviant, der erste Versuch zahlt doppelt, wer scheitert, ist bis morgen erschöpft.
+    9 Aufgaben werden nacheinander frei.
   - Nach jeder Aufgabe eine **Artfrage** („dieselbe Art?“); richtig beantwortet füllt sie das
     **Bestimmungsbuch** im Journal.
   - **Anheuern**: Fremde am Waldrand beobachten und für Beeren in die Gruppe holen.

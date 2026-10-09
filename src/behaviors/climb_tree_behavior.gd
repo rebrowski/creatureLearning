@@ -73,9 +73,6 @@ func update(delta: float) -> bool:
 				if outcome == "success":
 					_state = TOP
 					_wait = float(params.get("top_wait", 3.0))
-					var bait = params.get("bait")
-					if bait != null and is_instance_valid(bait):
-						bait.take(creature)
 					creature.locomotion.head_pitch = 0.3
 				else:
 					_state = DROP
