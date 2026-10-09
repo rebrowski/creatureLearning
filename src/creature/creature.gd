@@ -242,6 +242,12 @@ func _update_lod(delta: float) -> void:
 	set_lod(CreatureLOD.level_for(cam.global_position.distance_to(global_position), lod_level))
 
 
+## LOD sofort neu bestimmen (z. B. nach einem Kamerawechsel).
+func refresh_lod() -> void:
+	_lod_timer = 0.0
+	_update_lod(0.0)
+
+
 func set_lod(level: int) -> void:
 	if level == lod_level:
 		return

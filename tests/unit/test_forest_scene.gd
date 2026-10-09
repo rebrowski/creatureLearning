@@ -19,6 +19,22 @@ func after_all() -> void:
 	world.queue_free()
 
 
+## Wartet (Echtzeit, beschleunigt), bis cond() wahr ist.
+func _until(cond: Callable, seconds := 30.0) -> void:
+	Engine.time_scale = 8.0
+	var t := 0.0
+	while not cond.call() and t < seconds:
+		await get_tree().process_frame
+		t += get_process_delta_time() / Engine.time_scale
+	Engine.time_scale = 1.0
+
+
+## Hauptknopf der Runden-Übersicht drücken.
+func _press_round() -> void:
+	world._round_panel.visible = false
+	world._round_panel.primary.emit()
+
+
 func test_scene_has_components() -> void:
 	for n in ["Terrain", "Gardener", "Navigation", "DayNight", "Weather", "WorldContext", "Camera", "Creatures", "Sun", "Moon"]:
 		assert_not_null(world.get_node_or_null(n), n)
@@ -159,21 +175,6 @@ func test_cycling_through_creatures() -> void:
 	world._select(null)
 
 
-func test_tempo_speeds_up_everything() -> void:
-	world.set_tempo(2)
-	assert_eq(Engine.time_scale, 2.0, "Kreaturen und Aufgaben laufen mit")
-	assert_eq(world._time_button.text, "Tempo ×2")
-	world.set_tempo(1)
-	assert_eq(world._time_button.text, "Tempo ×1.5")
-	world.set_tempo(world.TIME_SCALES.size() - 1)
-	assert_eq(Engine.time_scale, 0.0)
-	assert_eq(world._time_button.text, "Pause")
-	for s in world.TIME_SCALES:
-		assert_lte(s, 4.0, "nicht zu schnell")
-	world.set_tempo(0)
-	assert_eq(Engine.time_scale, 1.0)
-
-
 func test_pick_roles_from_gallery() -> void:
 	var t: TaskDef = world.tasks.tasks[0]
 	var role: String = t.roles[0].id
@@ -240,21 +241,13 @@ func test_probe_runs_on_stage_and_is_recorded() -> void:
 	assert_true(world.stage.actors.is_empty())
 	assert_between(world.game.journal.probe(m.id, "dig"), 0, 3)
 	assert_eq(world.game.probes_today, 1)
-	assert_eq(world._probe_button.text, "Proben (%d)" % (world.PROBES_PER_DAY - 1))
+	assert_eq(world.probes_left(), world.PROBES_PER_DAY - 1)
 	world.game.probes_today = world.PROBES_PER_DAY
 	world.run_probe(m, probe)
 	assert_false(world._busy, "keine Probe mehr übrig")
 	world.game.probes_today = 0
 	world.game.journal.probes.erase(m.id)
 	world._select(null)
-
-
-func test_wait_jumps_to_evening() -> void:
-	world.day_night.hour = 10.0
-	world.wait_until_next()
-	await get_tree().create_timer(2.0).timeout
-	assert_almost_eq(world.day_night.hour, world.EVENING_HOUR, 0.2)
-	world.day_night.hour = 10.0
 
 
 func test_card_sits_at_bottom_and_shifts_camera() -> void:
@@ -280,7 +273,6 @@ func test_rival_attempt_and_hire_events() -> void:
 	world._on_rival_event(r, ev)
 	if ev.result.success and ev.task.site == t.site:
 		assert_eq(world.game.site_stock(t), stock_before - 1, "verbraucht den Vorrat")
-	assert_gt(world._ticker.get_child_count(), 0, "Meldung oben rechts")
 	# Anheuern: ein Fremder wird zum Rivalen, ein neuer kommt nach
 	r.credits = 500
 	var hire := RivalAI._hire(world.game, r, world.catalog, RandomNumberGenerator.new())
@@ -296,8 +288,11 @@ func test_season_rollover() -> void:
 	g.points = 120
 	g.rivals[0].points = 60
 	g.season.day = g.season.days
-	world._on_new_day()
+	world.next_round()
 	assert_true(world._season_panel.visible, "Schlusswertung")
+	var n: int = g.season.history.size()
+	world._enter_phase()
+	assert_eq(g.season.history.size(), n, "nach dem Laden nicht doppelt gewertet")
 	var res: Dictionary = g.season.history[-1]
 	assert_true(res.won)
 	assert_eq(res.suggest, "ehrgeizig", "deutlicher Sieg: stärkere Rivalen vorschlagen")
@@ -305,10 +300,14 @@ func test_season_rollover() -> void:
 	world._start_next_season("ehrgeizig")
 	assert_eq(int(g.season.number), 2)
 	assert_eq(g.points, 0)
-	assert_eq(g.rivals[0].points, 0)
+	assert_eq(g.round_number(), 1)
 	assert_eq(g.difficulty, "ehrgeizig")
 	assert_eq(world.rival_creatures.size(), g.rivals[0].members.size(), "neue Rivalen im Lager")
+	await _until(func(): return not world._busy)
+	world._round_panel.visible = false
 	world._start_next_season("normal")
+	await _until(func(): return not world._busy)
+	world._round_panel.visible = false
 
 
 func test_interrupted_task_is_resumed_on_start() -> void:
@@ -333,7 +332,39 @@ func test_sound_only_from_focused_visible_creature() -> void:
 	world.camera.target = a.global_position
 	world.camera.distance = 8.0
 	world.camera._apply()
+	for i in 3:  # LOD (sichtbar/unsichtbar) folgt der aktiven Kamera erst im nächsten Bild
+		await get_tree().process_frame
 	assert_true(world.is_sound_focus(a), "ausgewählte Kreatur im Bild ist hörbar")
 	if b != world.camera.follow:
 		assert_false(world.is_sound_focus(b), "andere Kreaturen bleiben still")
 	world._select(null)
+
+
+func test_round_runs_through_four_phases() -> void:
+	var g: GameState = world.game
+	world.debug_phase("rivals")
+	assert_true(world._busy or world._round_panel.visible, "Zug der Rivalen läuft")
+	await _until(func(): return world._round_panel.visible)
+	assert_true(world._round_panel.visible, "Übersicht nach dem Zug")
+	assert_eq(g.phase, "probes")
+	assert_between(g.round_offers.size(), 1, GameState.OFFERS_PER_ROUND)
+	_press_round()
+	assert_string_contains(world._phase_button.text, "Probe")
+	world._on_next_button()
+	assert_eq(g.phase, "task")
+	assert_true(world._task_panel.visible, "Angebote öffnen sich")
+	assert_true(g.round_offers.has(world._task_panel.selected_task().id), "nur Angebote der Runde")
+	world._task_panel.visible = false
+	var round_before := g.round_number()
+	world._on_next_button()
+	assert_eq(g.phase, "evening")
+	if world._question.visible:
+		world._question.visible = false
+		world._question.closed.emit()
+	assert_true(world._round_panel.visible, "Abend-Übersicht")
+	_press_round()
+	assert_eq(g.round_number(), round_before + 1, "nächste Runde")
+	await _until(func(): return world._round_panel.visible)
+	world._round_panel.visible = false
+	assert_eq(g.phase, "probes")
+	assert_eq(g.probes_today, 0)

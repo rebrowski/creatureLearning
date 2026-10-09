@@ -161,8 +161,17 @@ zusammensuchen, Aufgaben dauerten zu lange.
 - Entfernt: Köder (`Bait`, `SeekBehavior`, `bait_cost`), Knöpfe „Tempo“ und „◎ Zur Aufgabe“
   während Aufgaben.
 
-## M12 – Rundenstruktur (2.0, geplant)
-Saison = 7 Runden mit je 4 Phasen: Zug der Rivalen (als Bühnenszene, überspringbar) → 2 Proben →
-eigene Aufgabe (Wahl aus 2–3 Angeboten, Rollen aus der Galerie) → Abend (Ergebnisse, Artfrage,
-Punkte, Erholung, „Nächste Runde“). Die durchlaufende Uhr, Tempo, Warten und der Aufgaben-Hinweis
-entfallen; das Lager bleibt zum freien Zuschauen.
+## M12 – Rundenstruktur (2.0.0)
+Grund: Aufgaben-Ergebnisse kamen zu langsam, das ständige „Aufgaben“-Antippen wirkte umständlich,
+und man sollte abwechselnd zuschauen und handeln.
+- Saison = 7 Runden mit je 4 Phasen (`GameState.phase`): Zug der Rivalen (Bühnenszene,
+  „Überspringen“ = Zeitraffer, danach Übersicht) → 2 Proben → eine eigene Aufgabe aus bis zu 3
+  Angeboten (`pick_round_offers`) → Abend (Artfrage, Ergebnisse der Runde, Punktestand,
+  Erholung, „Nächste Runde ›“). Ein Phasen-Knopf und „Weiter ›“ in der oberen Leiste.
+- Rivalen ziehen pro Runde (`RivalAI.take_turn`, `actions_per_round`, `tasks_per_round` = 1):
+  simulierte Saison ohne Spieler (10 Läufe) gemütlich 20–150 (Median ≈ 85), normal 50–283
+  (≈ 150), ehrgeizig 105–410 (≈ 265); fehlerfreies Spiel mit einer Aufgabe pro Runde ≈ 430.
+- Entfernt: durchlaufende Uhr (jede Phase hat ihre Tageszeit), Tempo, „Warten …“, der Hinweis
+  „Aufgabe starten?“, sichtbare Rivalen-Versuche im Lager, Meldungen oben rechts, `TaskPlayer`.
+  Das Lager bleibt zum freien Zuschauen.
+- Ältere Spielstände laufen weiter (Phase „Zug der Rivalen“).

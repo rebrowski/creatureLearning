@@ -19,9 +19,7 @@ var points := 0
 var beliefs: Dictionary = {}
 ## Versuche dieser Saison: task_id -> {"attempts", "successes"}
 var tasks: Dictionary = {}
-## Spielstunde (GameState.game_hours), ab der die nächste Aktion fällig ist
-var next_action := 0.0
-## heute schon versuchte Aufgaben (task_id -> true), Reset am Morgen
+## in dieser Runde schon versuchte Aufgaben (task_id -> true), Reset zur nächsten Runde
 var today: Dictionary = {}
 var _name_index := 0
 
@@ -106,7 +104,7 @@ func to_dict() -> Dictionary:
 		list.append(m.to_dict())
 	return {"id": id, "name": name, "color": [color.r, color.g, color.b], "camp": [camp.x, camp.y],
 			"members": list, "credits": credits, "points": points, "beliefs": beliefs, "tasks": tasks,
-			"next_action": next_action, "name_index": _name_index, "today": today.keys()}
+			"name_index": _name_index, "today": today.keys()}
 
 
 static func from_dict(schema: GenomeSchema, d: Dictionary) -> RivalState:
@@ -123,7 +121,6 @@ static func from_dict(schema: GenomeSchema, d: Dictionary) -> RivalState:
 	r.points = int(d.get("points", 0))
 	r.beliefs = d.get("beliefs", {})
 	r.tasks = d.get("tasks", {})
-	r.next_action = float(d.get("next_action", 0.0))
 	r._name_index = int(d.get("name_index", r.members.size()))
 	for k in d.get("today", []):
 		r.today[str(k)] = true

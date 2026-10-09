@@ -50,7 +50,7 @@ func show_result(task: TaskDef, result: Dictionary, names: Dictionary, outcome: 
 		var tired_names := []
 		for m in tired:
 			tired_names.append(m.name)
-		box.add_child(UiUtil.label("%s %s erschöpft und %s bis morgen früh." % [" und ".join(tired_names), "ist" if tired_names.size() == 1 else "sind", "ruht" if tired_names.size() == 1 else "ruhen"], 15, Color(0.75, 0.75, 0.85)))
+		box.add_child(UiUtil.label("%s %s erschöpft und %s bis zur nächsten Runde." % [" und ".join(tired_names), "ist" if tired_names.size() == 1 else "sind", "ruht" if tired_names.size() == 1 else "ruhen"], 15, Color(0.75, 0.75, 0.85)))
 	var n: int = outcome.get("new_offers", []).size()
 	if n > 0:
 		box.add_child(UiUtil.label(("Am Waldrand wartet eine neue fremde Kreatur" if n == 1 else "Am Waldrand warten %d neue fremde Kreaturen" % n) + " – unter „Anheuern“.", 16, Color(0.95, 0.85, 0.4)))

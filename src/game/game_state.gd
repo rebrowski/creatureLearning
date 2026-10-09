@@ -39,8 +39,13 @@ var rivals: Array[RivalState] = []
 ## Laufende Aufgabe (falls die App währenddessen beendet wird, steht das Ergebnis
 ## schon fest): {"task": id, "assignments": {role: member_id}, "result": {...}} oder {}
 var pending_task: Dictionary = {}
-## vergangene Spielzeit in Stunden (für die Taktung der Rivalen)
-var game_hours := 0.0
+## Phase der laufenden Runde (Runde = season.day): "rivals" (Zug der Rivalen) →
+## "probes" (zwei Proben) → "task" (eigene Aufgabe) → "evening" (Auswertung)
+var phase := "rivals"
+## Aufgaben-Angebote dieser Runde (IDs), gewählt nach dem Zug der Rivalen
+var round_offers: Array = []
+## Meldungen dieser Runde für den Abend: [{"text", "who": "player"/Rivalen-ID, "earned"}]
+var round_log: Array = []
 ## Bestimmungsbuch: Art-ID -> true, sobald eine Artfrage zu ihr richtig beantwortet wurde
 var identified: Dictionary = {}
 ## schon gestellte Artfragen: "id_a|id_b" -> true
@@ -48,7 +53,10 @@ var asked_pairs: Dictionary = {}
 ## Einführung: 0 = noch nicht begonnen … INTRO_DONE = fertig/übersprungen.
 var intro_step := 0
 const INTRO_DONE := 99
-## Proben auf der Bühne an diesem Tag (begrenzt, setzt sich morgens zurück)
+const ROUND_PHASES := ["rivals", "probes", "task", "evening"]
+## Aufgaben-Angebote pro Runde
+const OFFERS_PER_ROUND := 3
+## Proben auf der Bühne in dieser Runde (begrenzt, setzt sich zur nächsten Runde zurück)
 var probes_today := 0
 var errors: PackedStringArray = []
 
@@ -114,8 +122,8 @@ func to_dict() -> Dictionary:
 			"credits": credits, "offers": offer_list, "intro_step": intro_step,
 			"identified": identified.keys(), "asked_pairs": asked_pairs.keys(), "sites": sites,
 			"season": season, "difficulty": difficulty, "points": points, "season_tasks": season_tasks,
-			"rivals": rivals.map(func(r): return r.to_dict()), "game_hours": game_hours,
-			"pending_task": pending_task, "probes_today": probes_today}
+			"rivals": rivals.map(func(r): return r.to_dict()), "phase": phase, "round_offers": round_offers,
+			"round_log": round_log, "pending_task": pending_task, "probes_today": probes_today}
 
 
 func _from_dict(d: Variant) -> void:
@@ -150,13 +158,17 @@ func _from_dict(d: Variant) -> void:
 		season = d.season
 		points = int(d.get("points", 0))
 		season_tasks = d.get("season_tasks", {})
-		game_hours = float(d.get("game_hours", 0.0))
 		for rd in d.get("rivals", []):
 			rivals.append(RivalState.from_dict(schema, rd))
 	else:
 		start_season(1)  # ältere Spielstände: erste Saison beginnt jetzt
 	pending_task = d.get("pending_task", {})
 	probes_today = int(d.get("probes_today", 0))
+	phase = str(d.get("phase", "rivals"))
+	if not ROUND_PHASES.has(phase):
+		phase = "rivals"
+	round_offers = d.get("round_offers", [])
+	round_log = d.get("round_log", [])
 	refill_sites()
 	var saved_sites: Dictionary = d.get("sites", {})
 	for k in saved_sites:
@@ -225,7 +237,7 @@ func attempt_cost(cfg: Dictionary = {}) -> int:
 
 
 ## Aufgabenergebnis eintragen. Der Einsatz wird abgezogen, bei Erfolg gibt es
-## die Belohnung. Wer gescheitert ist (failed), ist bis zum Morgen erschöpft.
+## die Belohnung. Wer gescheitert ist (failed), ist bis zur nächsten Runde erschöpft.
 ## Danach kommen neue Fremde an den Waldrand.
 ## Rückgabe: {"earned": int, "cost": int, "new_offers": Array[GroupMember], "exhausted": Array[GroupMember]}.
 func record_task(task: TaskDef, success: bool, failed: Array = []) -> Dictionary:
@@ -275,9 +287,50 @@ func start_season(number: int) -> void:
 	rivals.clear()
 	if factory != null:
 		for g in cfg.get("groups", []):
-			var r := RivalState.create(g, factory)
-			r.next_action = game_hours + float(RivalState.difficulty(difficulty).get("interval_hours", 2.0))
-			rivals.append(r)
+			rivals.append(RivalState.create(g, factory))
+	phase = "rivals"
+	round_offers = []
+	round_log = []
+
+
+## Runde (= Spieltag) der Saison, ab 1.
+func round_number() -> int:
+	return int(season.get("day", 1))
+
+
+## Aufgaben-Angebote der Runde: freigeschaltete Aufgaben mit Vorrat, ungelöste
+## zuerst (in Reihenfolge der Kette), dazu eine schon gelöste zum Wiederholen.
+func pick_round_offers(task_catalog: TaskCatalog, count := OFFERS_PER_ROUND) -> Array:
+	var open_: Array = []
+	var solved: Array = []
+	for t in task_catalog.tasks:
+		if not task_unlocked(t) or site_stock(t) == 0:
+			continue
+		if int(tasks.get(t.id, {}).get("successes", 0)) > 0:
+			solved.append(t.id)
+		else:
+			open_.append(t.id)
+	var rng := RngUtil.make_rng(["offers", int(season.get("number", 1)), round_number()])
+	var out: Array = open_.slice(0, count - 1 if not solved.is_empty() else count)
+	while out.size() < count and not solved.is_empty():
+		out.append(solved.pop_at(rng.randi() % solved.size()))
+	for id in open_:
+		if out.size() >= count:
+			break
+		if not out.has(id):
+			out.append(id)
+	round_offers = out
+	return out
+
+
+## Runde abschließen: Nacht (Erholung, Nachwachsen), nächste Runde beginnt mit dem
+## Zug der Rivalen. true = die Saison ist zu Ende.
+func end_round() -> bool:
+	new_morning()
+	phase = "rivals"
+	round_offers = []
+	round_log = []
+	return advance_day()
 
 
 ## Ein Spieltag ist vorbei. true = die Saison ist zu Ende.
@@ -357,7 +410,7 @@ func site_text(task: TaskDef) -> String:
 	return "%s: noch %d %s." % [str(c.get("name", task.site)).capitalize(), stock, c.get("unit", "")]
 
 
-## Neuer Morgen: alle Erschöpften sind wieder fit, Fundstellen wachsen nach.
+## Neuer Morgen (nächste Runde): alle Erschöpften sind wieder fit, Fundstellen wachsen nach.
 ## Rückgabe: wie viele Erschöpfte sich erholt haben.
 func new_morning() -> int:
 	var cfg := sites_config()

@@ -104,9 +104,24 @@ dass unter den Fremden eine passende Art wartet (`GameState.needed_species`) –
 ## Einsatz und Erschöpfung
 
 Jeder Versuch kostet `attempt_cost` Beeren Proviant (nie mehr als das Guthaben). Wer in seiner
-Rolle scheitert, ist bis zum nächsten Morgen (`morning_hour`) erschöpft und nicht einsetzbar;
-über Nacht wachsen auch die Früchte nach. „Optionen → Warten …“ spult zum nächsten Abend bzw.
-Morgen vor. Damit lohnt sich Beobachten mehr als Durchprobieren.
+Rolle scheitert, ist bis zur nächsten Runde erschöpft und nicht einsetzbar; über Nacht wachsen
+auch die Früchte nach. Damit lohnt sich Beobachten mehr als Durchprobieren.
+
+## Runden
+
+Eine Saison hat `season_days` (7) Runden; jede Runde (`GameState.phase`) hat vier Phasen:
+
+1. `rivals` – die Rivalen ziehen (`RivalAI.take_turn`: `actions_per_round` Aktionen, davon
+   höchstens `tasks_per_round` Aufgaben); ihre Aufgaben laufen als Bühnenszene, dann eine Übersicht.
+2. `probes` – zwei Proben (`PROBES_PER_DAY`). Danach stehen die Angebote der Runde fest
+   (`GameState.pick_round_offers`, `OFFERS_PER_ROUND` = 3: ungelöste Aufgaben der Kette zuerst,
+   dazu eine schon gelöste zum Wiederholen; nur mit Vorrat).
+3. `task` – höchstens eine eigene Aufgabe aus den Angeboten (oder „Ohne Aufgabe“).
+4. `evening` – Artfrage, Ergebnisse der Runde (`round_log`), Punktestand; „Nächste Runde“ ruft
+   `GameState.end_round()` auf (Erholung, Nachwachsen, neue Proben, nächste Runde).
+
+Die Uhr läuft nicht von selbst: Jede Phase hat ihre Tageszeit (morgens, vormittags, nachmittags,
+abends); Aufgaben und Proben bringen ihre eigene Tageszeit auf die Bühne mit (z. B. nachts).
 
 ## Bühne: Proben und Aufgaben
 
@@ -145,7 +160,7 @@ nie mit den wahren Werten. Fremde werden beim Wählen angeheuert.
 
 ## Artfragen und Bestimmungsbuch
 
-Nach jeder Aufgabe fragt das Spiel: „Gehören A und B zur selben Art?“ – zuerst die
+Am Abend jeder Runde fragt das Spiel: „Gehören A und B zur selben Art?“ – zuerst die
 ähnlichsten Paare (Doppelgänger). Richtig: `species_reward` Beeren, und beide Arten gelten als
 **bestimmt**: Das Bestimmungsbuch im Journal zeigt dann ihren wissenschaftlichen Namen und wer
 dazugehört. Die Auswertung einer Aufgabe vergleicht außerdem das Ergebnis jeder Rolle mit der
@@ -155,27 +170,27 @@ eigenen Einschätzung („passt / passt nicht zu deiner Einschätzung“).
 
 Aufgaben mit `site` verbrauchen bei Erfolg eine Einheit ihrer Fundstelle (Früchte am Baum,
 Trüffel, Steine) – egal ob du oder die Rivalen sie lösen. Ist nichts mehr da, lässt sich die Aufgabe
-erst am nächsten Morgen wieder starten; jeden Morgen wachsen `regrow` Einheiten nach.
+erst in der nächsten Runde wieder starten; jede Nacht wachsen `regrow` Einheiten nach.
 
 ## Rivalen und Saisons (`data/game/rivals.json`)
 
 Die Moosläufer leben mit eigenen Arten im Lager am anderen Ufer und spielen nach denselben Regeln
 (Einsatz, Belohnung, Erschöpfung, Freischaltungs-Kette, knappe Fundstellen). Sie kennen die wahren
 Fähigkeiten nicht: Sie starten mit vorsichtigen Schätzungen (`start_belief`), beobachten gezielt die
-Fähigkeiten der nächsten Aufgabe und lernen aus jedem Versuch (`learn`). Ihre Versuche sieht man in
-der Welt (die entscheidende Rolle zeigt ihr Verhalten), oben rechts erscheinen Punktestand und
-Meldungen. Sie heuern auch Fremde an; eine Art, die du für eine Rolle brauchst, kommt immer nach.
+Fähigkeiten der nächsten Aufgabe und lernen aus jedem Versuch (`learn`). Sie sind zu Beginn jeder
+Runde am Zug; ihre Aufgaben laufen auf der Bühne ab, danach fasst eine Übersicht den Zug zusammen.
+Sie heuern auch Fremde an; eine Art, die du für eine Rolle brauchst, kommt immer nach.
 
-Eine **Saison** dauert `season_days` Spieltage. Punkte = verdiente Belohnungen + Artfragen. Danach
+Eine **Saison** dauert `season_days` Runden. Punkte = verdiente Belohnungen + Artfragen. Danach
 folgt die Schlusswertung; liegt jemand um `adaptive_margin` vorn, schlägt das Spiel eine stärkere
 bzw. ruhigere Stufe vor. In der neuen Saison bleiben Gruppe, Journal, Guthaben und freigeschaltete
 Aufgaben; die Rivalen beginnen neu, alle Vorräte sind voll, der Erstversuch-Bonus gilt wieder.
 
-| Stufe | Aktion alle | Aufgaben/Tag | Lernrate |
-|---|---|---|---|
-| gemütlich | 2.5 Spielstunden | 1 | 0.5 |
-| normal | 2 Spielstunden | 2 | 0.7 |
-| ehrgeizig | 1.2 Spielstunden | 2 | 0.85 |
+| Stufe | Aktionen pro Zug | Aufgaben pro Zug | Lernrate | Saison ohne Spieler (Median) |
+|---|---|---|---|---|
+| gemütlich | 5 | 1 | 0.5 | ≈ 85 |
+| normal | 7 | 1 | 0.7 | ≈ 150 |
+| ehrgeizig | 11 | 1 | 0.85 | ≈ 265 |
 
 ## Guthaben und Anheuern (`data/game/progression.json`)
 
@@ -202,5 +217,4 @@ Neue Kreaturen kommen nur über **Anheuern** in die Gruppe:
 |---|---|
 | `scale` | `"auto"` oder Faktor 1.0–2.0 für Schrift und Knöpfe („Optionen → Text“). Auto: 656 / kürzere Bildschirmseite in dp (Handy ≈ 1.6, Laptop 1.0) |
 | `show_names` | Namensschilder über den Kreaturen („Optionen → Namen“), Standard an |
-| `task_prompt` | Hinweis „Eine Aufgabe wartet“ nach 20 s ohne Eingabe (danach alle 90 s), abschaltbar mit „Nicht mehr fragen“ |
 | `sound` | Geräusche und Vibration („Optionen → Ton“), Standard an |

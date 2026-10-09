@@ -61,7 +61,7 @@ core                                  (M1)  Ränge, Seeds, JSON
 | `src/behaviors/behavior_brain.gd`, `*_behavior.gd` | Nutzenbasierte Auswahl und zehn sichtbare Verhaltensweisen. |
 | `src/behaviors/nav_mover.gd`, `behavior_effects.gd`, `carry_item.gd` | Wegfolgen mit Abstandhalten (nach Körpergröße, rechts ausweichen, Vortritt lassen), Effekte (Erde, Rufwellen, Löcher …), tragbare Steine. |
 | `src/taxonomy/species_diagnostics.gd` | Trennschärfe einzelner Gene zwischen zwei Arten (Designwerkzeug). |
-| `src/world/forest_world.gd` | Wurzel der Waldszene: Spielstand, Gruppe, Fremde, Anheuern, Überlappungen auflösen, Beobachtungsprotokoll, Wechsel zur Bühne (Proben, Aufgaben), Galerie, HUD, Hinweis „Aufgabe starten?“. |
+| `src/world/forest_world.gd` | Wurzel der Waldszene: Spielstand, Gruppe, Fremde, Anheuern, Überlappungen auflösen, Beobachtungsprotokoll, Rundenablauf (Zug der Rivalen, Proben, Aufgabe, Abend), Wechsel zur Bühne, Galerie, HUD. |
 | `src/game/game_state.gd`, `group_member.gd` | Spielstand (JSON, mit Genomen), Gruppe, Guthaben, Fremde und Anheuern. |
 | `src/game/rival_state.gd`, `rival_ai.gd` | Rivalen-Gruppe (Mitglieder, Schätzungen, Punkte) und ihre faire Entscheidungslogik. |
 | `src/game/sfx.gd`, `sound.gd` | Autoload „Sfx“ (Geräusche aus `assets/sounds`, Vibration) und statischer Zugriff `Sound`. |
@@ -69,8 +69,8 @@ core                                  (M1)  Ränge, Seeds, JSON
 | `src/stage/probe_catalog.gd` | Proben aus `data/stage/probes.json`, Bewertung 0–3. |
 | `src/game/ui_settings.gd` | Oberflächen-Skalierung (auto nach Bildschirmgröße), Namensschilder, Hinweis an/aus. |
 | `src/journal/journal.gd` | Markierungen, eigene Gruppen, Notizen, Einschätzungen, Protokoll. |
-| `src/tasks/task_def.gd`, `task_catalog.gd`, `task_simulator.gd`, `task_player.gd` | Aufgaben aus JSON, Bewertung; `TaskPlayer` löst nur noch Orte auf (sichtbare Versuche der Rivalen im Lager). |
-| `src/ui/*` | Kreaturen-Karte, Galerie, Proben-Auswahl, Journal mit Bestimmungsbuch, Aufgabenwahl, Auswertung, Artfrage, Einführung, Anheuern, Aufgaben-Hinweis (im Code gebaut, touchfreundlich, passen sich der Bildschirmgröße an). |
+| `src/tasks/task_def.gd`, `task_catalog.gd`, `task_simulator.gd` | Aufgaben aus JSON und Bewertung (die Wiedergabe übernimmt die Bühne). |
+| `src/ui/*` | Kreaturen-Karte, Galerie, Proben-Auswahl, Runden-Übersicht, Journal mit Bestimmungsbuch, Aufgabenwahl, Auswertung, Artfrage, Einführung, Anheuern (im Code gebaut, touchfreundlich, passen sich der Bildschirmgröße an). |
 | `tools/build_forest.gd` | Erzeugt `forest.tscn` inkl. Spatial-Gardener-Vegetation. |
 | `src/debug/*` | Menü, Viewer, 2D-Glyphen, Vergleich, Kreaturen-Labor, Menü-Knopf (Autoload `DebugNav`). |
 | `tools/screenshot.gd` | Szene rendern und als PNG speichern (für visuelle Prüfung). |

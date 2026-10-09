@@ -6,7 +6,8 @@ extends RefCounted
 ## Misserfolg (und aus Beobachten) lernt sie mit der Lernrate der
 ## Schwierigkeitsstufe.
 ##
-## act() führt genau eine Aktion aus und liefert ein Ereignis:
+## take_turn() ist der Zug einer Runde (actions_per_round Aktionen); act() führt
+## genau eine Aktion aus und liefert ein Ereignis:
 ##   {"type": "task", "task": TaskDef, "result": Dictionary, "assignments": {role: GroupMember},
 ##    "earned": int, "cost": int, "text": String}
 ##   {"type": "hire", "member": GroupMember, "price": int, "text": String}
@@ -14,10 +15,21 @@ extends RefCounted
 ##   {"type": "rest", "text": ""}
 
 
+## Zug einer Runde: alle Aktionen nacheinander. Rückgabe: Ereignisse (ohne „rest“).
+static func take_turn(gs: GameState, rival: RivalState, task_catalog: TaskCatalog, catalog: AbilityCatalog,
+		rng: RandomNumberGenerator) -> Array:
+	var out := []
+	for i in int(RivalState.difficulty(gs.difficulty).get("actions_per_round", 7)):
+		var ev := act(gs, rival, task_catalog, catalog, rng)
+		if ev.type != "rest":
+			out.append(ev)
+	return out
+
+
 static func act(gs: GameState, rival: RivalState, task_catalog: TaskCatalog, catalog: AbilityCatalog,
 		rng: RandomNumberGenerator) -> Dictionary:
 	var diff := RivalState.difficulty(gs.difficulty)
-	if rival.today.size() < int(diff.get("tasks_per_day", 2)):
+	if rival.today.size() < int(diff.get("tasks_per_round", 2)):
 		var plan := best_plan(gs, rival, task_catalog, catalog, float(diff.get("risk", 0.05)))
 		if not plan.is_empty():
 			return _attempt(gs, rival, plan, catalog)
