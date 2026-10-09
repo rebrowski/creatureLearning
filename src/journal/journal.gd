@@ -23,6 +23,8 @@ var ratings: Dictionary = {}
 var groups: Array = []
 ## [{"time": String, "member": String, "text": String}]
 var entries: Array = []
+## Ergebnisse der Proben auf der Bühne: member_id -> {ability: Stufe 0..3 (letzte Probe)}
+var probes: Dictionary = {}
 
 
 func set_mark(member_id: String, color_index: int) -> void:
@@ -104,14 +106,35 @@ func entries_for(member_id: String, max_count := 5) -> Array:
 	return out
 
 
+## Probenergebnis festhalten (Stufe 0..3).
+func set_probe(member_id: String, ability: String, grade: int) -> void:
+	if not probes.has(member_id):
+		probes[member_id] = {}
+	probes[member_id][ability] = grade
+	changed.emit()
+
+
+## Letzte Probenstufe (-1 = noch nicht geprüft).
+func probe(member_id: String, ability: String) -> int:
+	return int(probes.get(member_id, {}).get(ability, -1))
+
+
+## ●●○ für eine Stufe 0..3 (drei Punkte, gefüllt = erreicht).
+static func grade_dots(grade: int) -> String:
+	if grade < 0:
+		return "–"
+	return "●".repeat(grade) + "○".repeat(3 - grade)
+
+
 func to_dict() -> Dictionary:
-	return {"marks": marks, "notes": notes, "ratings": ratings, "groups": groups, "log": entries}
+	return {"marks": marks, "notes": notes, "ratings": ratings, "groups": groups, "log": entries, "probes": probes}
 
 
 static func from_dict(d: Dictionary) -> Journal:
 	var j := Journal.new()
 	j.marks = d.get("marks", {})
 	j.notes = d.get("notes", {})
+	j.probes = d.get("probes", {})
 	j.ratings = d.get("ratings", {})
 	for g in d.get("groups", []):
 		j.groups.append({"name": str(g.get("name", "")), "members": Array(g.get("members", []))})

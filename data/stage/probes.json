@@ -1,0 +1,32 @@
+{
+  "format": "probes/1",
+  "notes": "Proben auf der Bühne: jede prüft genau eine Fähigkeit mit einem eindeutigen, abgestuften Ergebnis (0–3). Stufe = Fähigkeitswert im Kontext (Nacht bei 'night', Zone bei 'zone') mit kleiner Streuung, Grenzen 'thresholds'. 'results' beschreibt, was man pro Stufe sieht (ohne Zahlen). Beim Bach zählt Waten (lange Beine) wie Schwimmen-Stufe 3.",
+  "thresholds": [0.25, 0.5, 0.75],
+  "noise": 0.06,
+  "probes": [
+    { "id": "climb", "name": "Kletterprobe", "ability": "climb", "zone": "tree", "prop": "trunk",
+      "hint": "Stamm mit zwei Ringen, oben eine Frucht.",
+      "results": ["rutscht gleich wieder ab", "kommt bis zum ersten Ring", "kommt bis zum zweiten Ring", "holt die Frucht ganz oben"] },
+    { "id": "swim", "name": "Bachprobe", "ability": "swim", "zone": "water", "prop": "stream",
+      "hint": "Bach mit Fahne am anderen Ufer.",
+      "results": ["traut sich nicht ins Wasser", "kehrt nach wenigen Zügen um", "schafft es bis zur Mitte, dann zurück", "erreicht die Fahne am anderen Ufer"] },
+    { "id": "scent", "name": "Spürprobe", "ability": "scent", "prop": "mounds",
+      "hint": "Vier Erdhügel – unter einem liegt eine Knolle.",
+      "results": ["findet keine Spur", "gräbt zweimal falsch", "gräbt einmal falsch, dann richtig", "folgt der Spur direkt zur Knolle"] },
+    { "id": "night", "name": "Nachtprobe", "ability": "night_vision", "night": true, "prop": "dark_path",
+      "hint": "Dunkler Pfad mit Abzweigung und Steinen, am Ende ein Licht.",
+      "results": ["bleibt im Dunkeln stehen", "stößt an Steine und biegt falsch ab", "zögert an der Abzweigung, findet dann das Ziel", "läuft zielstrebig durch die Dunkelheit"] },
+    { "id": "dig", "name": "Grabprobe", "ability": "dig", "prop": "hard_ground",
+      "hint": "Harter Boden mit Tiefenmarke.",
+      "results": ["kratzt nur an der Oberfläche", "gräbt eine flache Mulde", "gräbt bis knapp vor die Marke", "gräbt bis zur Marke und findet etwas"] },
+    { "id": "carry", "name": "Trageprobe", "ability": "carry", "prop": "stone",
+      "hint": "Schwerer Stein und ein Zielkreis.",
+      "results": ["bekommt den Stein nicht hoch", "schleift ihn ein Stück", "trägt ihn bis kurz vor den Kreis", "trägt ihn in den Zielkreis"] },
+    { "id": "noise", "name": "Rufprobe", "ability": "noise", "prop": "posts",
+      "hint": "Drei Pfosten mit Glöckchen in 3, 6 und 9 Metern.",
+      "results": ["der Ruf verhallt sofort", "erreicht den ersten Pfosten", "erreicht den zweiten Pfosten", "lässt alle drei Glöckchen klingen"] },
+    { "id": "scare", "name": "Mutprobe", "ability": "scare", "prop": "raider",
+      "hint": "Ein Räuber am Rand der Lichtung.",
+      "results": ["weicht selbst zurück", "der Räuber bleibt unbeeindruckt", "der Räuber weicht ein Stück zurück", "der Räuber flieht"] }
+  ]
+}

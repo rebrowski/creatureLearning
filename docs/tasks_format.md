@@ -108,12 +108,40 @@ Rolle scheitert, ist bis zum nächsten Morgen (`morning_hour`) erschöpft und ni
 über Nacht wachsen auch die Früchte nach. „Optionen → Warten …“ spult zum nächsten Abend bzw.
 Morgen vor. Damit lohnt sich Beobachten mehr als Durchprobieren.
 
-## Köder
+## Bühne: Proben und Aufgaben
 
-„Köder“ (1 Beere, `bait_cost`) und dann antippen: an einen **Baumstamm** (wer klettert hinauf?),
-in den **Bach** (wer kommt hin – watend, schwimmend, zögernd?) oder auf den **Boden** (nachts:
-wer findet die Beere im Dunkeln?). Bis zu drei Kreaturen in der Nähe (14 m) probieren es,
-auch Fremde; die Versuche landen im Protokoll.
+Proben und Aufgaben laufen auf der **Bühne** (`src/stage/stage.gd`): einer beleuchteten Lichtung
+weit abseits des Lagers mit eigener Kamera. Dort stehen nur die Beteiligten, schon am Startpunkt;
+die Uhr der Welt steht so lange. „Überspringen“ spielt den Rest im Zeitraffer ab.
+
+**Proben** (Knopf „Proben“, `data/stage/probes.json`, `ProbeCatalog`): Jede prüft genau eine
+Fähigkeit mit einem eindeutigen, abgestuften Beweis-Moment (Stufe 0–3, im Journal als ○○○ … ●●●):
+
+| Probe | Fähigkeit | Requisite (`prop`) | Stufen |
+|---|---|---|---|
+| Kletterprobe | Klettern | `trunk`: Stamm mit zwei Ringen, oben die Frucht | abrutschen · Ring 1 · Ring 2 · Frucht |
+| Bachprobe | Schwimmen | `stream`: Bach mit Fahne (Waten zählt als 3) | traut sich nicht · kehrt um · bis zur Mitte · Fahne |
+| Spürprobe | Wittern | `mounds`: vier Hügel, unter einem die Knolle | keine Spur · 2× falsch · 1× falsch · direkt |
+| Nachtprobe | Im Dunkeln sehen | `dark_path`: Pfad mit Abzweigung, Licht am Ziel (nachts) | bleibt stehen · stößt an, falsch abgebogen · zögert · zielstrebig |
+| Grabprobe | Graben | `hard_ground`: Erdhaufen zeigt die Tiefe | kratzt · Mulde · knapp · Marke |
+| Trageprobe | Tragen | `stone`: Stein und Zielkreis | nicht hoch · schleift · knapp davor · im Kreis |
+| Rufprobe | Lärm machen | `posts`: Glöckchen in 3, 6, 9 m | verhallt · 1 · 2 · alle drei |
+| Mutprobe | Gefahr verscheuchen | `raider`: Räuber am Rand | weicht selbst · unbeeindruckt · weicht · flieht |
+
+Stufe = Fähigkeitswert im Kontext der Probe (`night`, `zone`) plus kleine Streuung (`noise`),
+Grenzen `thresholds` (0.25 / 0.5 / 0.75). `PROBES_PER_DAY` = 2 Proben pro Tag
+(`GameState.probes_today`, morgens zurückgesetzt). Nach der Probe zeigt die Leiste unten das
+Ergebnis und gleich die Knöpfe für die eigene Einschätzung.
+
+**Aufgaben** werden in Abschnitte zerlegt (`StageDirector.run_task`): je Rolle der Beweis-Moment
+ihrer Fähigkeit (`climb_tree` → Stamm, `cross_stream` → Bach, `walk_to` mit Nachtsicht → dunkler
+Pfad, `behavior` sniff/dig/call/display/carry → Hügel/Boden/Pfosten/Räuber/Stein). Die Stufe kommt
+aus dem feststehenden Ergebnis (`ProbeCatalog.task_grade`: Erfolg = 3, sonst 0–2 nach Abstand zur
+Schwelle). Aufgaben ab 20:30 Uhr spielen nachts.
+
+**Galerie** (`GalleryBar`): Kreaturen wählt man für Proben und Rollen aus Karten am unteren Rand
+(Bild, Name, eigene Einschätzung der gefragten Fähigkeit, letzte Probe; Filter Gruppe / Fremde) –
+nie mit den wahren Werten. Fremde werden beim Wählen angeheuert.
 
 ## Artfragen und Bestimmungsbuch
 

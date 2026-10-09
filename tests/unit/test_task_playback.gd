@@ -1,5 +1,5 @@
 extends GutTest
-## Eine Aufgabe in der Welt abspielen (beschleunigt).
+## Eine Aufgabe auf der Bühne abspielen (beschleunigt).
 
 var world: Node3D
 
@@ -35,50 +35,47 @@ func _pick(role: String, task: TaskDef, best: bool, exclude: GroupMember = null)
 	return pick
 
 
-func _play(task: TaskDef, assignments: Dictionary) -> Dictionary:
-	var done := []
+## Startet die Aufgabe und wartet, bis die Bühne fertig ist. Rückgabe: Anzahl Darsteller zwischendurch.
+func _play(task: TaskDef, assignments: Dictionary) -> int:
+	world._result_panel.visible = false
 	world.start_task(task, assignments)
-	world._player.finished.connect(func(r): done.append(r))
+	assert_true(world._busy, "Bühne läuft")
+	assert_true(world.stage.camera.current, "Bühnenkamera aktiv")
+	var most := 0
 	var t := 0.0
-	while done.is_empty() and t < 300.0:  # simulierte Sekunden (time_scale)
+	while world._busy and t < 60.0:  # Echtzeit-Sekunden
 		await get_tree().process_frame
-		t += get_process_delta_time()
-	assert_false(done.is_empty(), "Aufgabe endet (Zeitlimit)")
-	return done[0] if not done.is_empty() else {}
+		most = maxi(most, world.stage.actors.size())
+		t += get_process_delta_time() / maxf(Engine.time_scale, 0.01)
+	assert_false(world._busy, "Aufgabe endet (Zeitlimit)")
+	assert_true(world._result_panel.visible, "Auswertung erscheint")
+	assert_true(world.stage.actors.is_empty(), "Bühne aufgeräumt")
+	assert_eq(world.get_viewport().get_camera_3d(), world.camera, "zurück ins Lager")
+	return most
 
 
-func test_successful_fruit_task_moves_fruit_across_and_pays() -> void:
+func test_successful_fruit_task_pays_and_uses_stock() -> void:
 	var task: TaskDef = world.tasks.get_task("fruit_over_stream")
 	var climber := _pick("climber", task, true)
 	var carrier := _pick("carrier", task, true, climber)
-	var tree: FruitTree = world.terrain.fruit_trees[0]
-	var fruits_before := tree.remaining_fruits()
+	var stock: int = world.game.site_stock(task)
 	var credits_before: int = world.game.credits
 	var expected_gain: int = world.game.reward_for(task) - world.game.attempt_cost()
-	var r := await _play(task, {"climber": climber, "carrier": carrier})
-	assert_true(r.get("success", false), "gute Besetzung gelingt")
-	assert_eq(tree.remaining_fruits(), fruits_before - 1, "Frucht vom Baum geholt")
-	var fruit: Node3D = world.creature_root.get_node_or_null("TaskFruit")
-	assert_not_null(fruit)
-	var l: ForestLayout = world.terrain.layout
-	var tree_side := l.stream_info(tree.global_position.x, tree.global_position.z)
-	var c2: Vector2 = tree_side.closest
-	var to_tree := Vector2(tree.global_position.x, tree.global_position.z) - c2
-	var to_fruit := Vector2(fruit.global_position.x, fruit.global_position.z) - c2
-	assert_lt(to_tree.dot(to_fruit), 0.0, "Frucht liegt am anderen Ufer")
+	var most := await _play(task, {"climber": climber, "carrier": carrier})
+	assert_eq(most, 1, "je Abschnitt steht nur eine Kreatur auf der Bühne")
+	assert_eq(world.game.tasks.fruit_over_stream.successes, 1, "gute Besetzung gelingt")
+	assert_eq(world.game.site_stock(task), stock - 1, "Fundstelle verbraucht")
 	assert_eq(world.game.credits, credits_before + expected_gain, "Belohnung minus Einsatz")
-	assert_eq(world.game.tasks.fruit_over_stream.successes, 1)
-	assert_false(world.creature_of(climber).scripted)
+	assert_true(world.game.pending_task.is_empty())
 
 
-func test_weak_climber_fails_without_fruit() -> void:
+func test_weak_climber_fails() -> void:
 	var task: TaskDef = world.tasks.get_task("fruit_over_stream")
 	var climber := _pick("climber", task, false)
 	var carrier := _pick("carrier", task, true, climber)
-	var tree: FruitTree = world.terrain.fruit_trees[0]
-	var fruits_before := tree.remaining_fruits()
-	var r := await _play(task, {"climber": climber, "carrier": carrier})
-	assert_false(r.get("success", true))
-	assert_eq(tree.remaining_fruits(), fruits_before, "keine Frucht geholt")
-	for c in world.creatures:
-		assert_false(world.brains[world.creatures.find(c)].paused, "Gehirne wieder frei")
+	var stock: int = world.game.site_stock(task)
+	var before: int = world.game.tasks.get(task.id, {}).get("successes", 0)
+	await _play(task, {"climber": climber, "carrier": carrier})
+	assert_eq(world.game.tasks.get(task.id, {}).get("successes", 0), before, "kein Erfolg")
+	assert_eq(world.game.site_stock(task), stock, "Vorrat unverändert")
+	assert_true(climber.exhausted, "wer scheitert, ist erschöpft")

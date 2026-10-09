@@ -78,5 +78,5 @@ static func rating_checks(task: TaskDef, result: Dictionary, assignments: Dictio
 			out.append(["✓ %s: passt zu deiner Einschätzung %s." % [m.name, label], Color(0.6, 1.0, 0.5)])
 		elif rating < 0 and not hint_given:
 			hint_given = true
-			out.append(["Tipp: Halte auf der Karte von %s fest, wie gut %s kann – dann prüft die Auswertung deine Einschätzung." % [m.name, abilities.name_of(ab)], Color(1, 1, 1, 0.6)])
+			out.append(["Tipp: Halte auf der Karte von %s deine Einschätzung bei %s fest – dann prüft die Auswertung sie." % [m.name, abilities.name_of(ab)], Color(1, 1, 1, 0.6)])
 	return out

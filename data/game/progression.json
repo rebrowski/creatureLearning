@@ -1,6 +1,6 @@
 {
   "format": "progression/2",
-  "notes": "Guthaben und Anheuern (siehe docs/tasks_format.md, Abschnitt 'Guthaben und Anheuern'). Neue Kreaturen kommen nur noch über Anheuern dazu: Am Waldrand warten 'offers' Fremde. Preis = price_base + price_per_member × Gruppengröße (± price_jitter, Jungtiere × juvenile_factor), gerundet auf 5. Nach jeder Aufgabe wird auf 'offers' aufgefüllt. Belohnung: 'reward' aus der Aufgabe beim ersten Erfolg, danach × repeat_reward_factor. lookalike_chance: Wahrscheinlichkeit, dass ein Fremder einer Art angehört, die einem Gruppenmitglied ähnlich sieht (Doppelgänger). Einsatz: Jeder Aufgabenversuch kostet attempt_cost Beeren Proviant (bei weniger Guthaben entsprechend weniger – nie eine Sackgasse). Belohnung vor dem ersten Erfolg: reward × first_try_factors[Anzahl bisheriger Versuche] (1. Versuch ×2, 2. ×1, danach ×0.5). Wer bei einer Aufgabe scheitert, ist bis zum nächsten Morgen (morning_hour) erschöpft und nicht einsetzbar. bait_cost: Preis eines Köders. species_reward: Belohnung für eine richtig beantwortete Artfrage (danach gilt die Art als bestimmt, ihr wissenschaftlicher Name erscheint im Bestimmungsbuch).",
+  "notes": "Guthaben und Anheuern (siehe docs/tasks_format.md, Abschnitt 'Guthaben und Anheuern'). Neue Kreaturen kommen nur noch über Anheuern dazu: Am Waldrand warten 'offers' Fremde. Preis = price_base + price_per_member × Gruppengröße (± price_jitter, Jungtiere × juvenile_factor), gerundet auf 5. Nach jeder Aufgabe wird auf 'offers' aufgefüllt. Belohnung: 'reward' aus der Aufgabe beim ersten Erfolg, danach × repeat_reward_factor. lookalike_chance: Wahrscheinlichkeit, dass ein Fremder einer Art angehört, die einem Gruppenmitglied ähnlich sieht (Doppelgänger). Einsatz: Jeder Aufgabenversuch kostet attempt_cost Beeren Proviant (bei weniger Guthaben entsprechend weniger – nie eine Sackgasse). Belohnung vor dem ersten Erfolg: reward × first_try_factors[Anzahl bisheriger Versuche] (1. Versuch ×2, 2. ×1, danach ×0.5). Wer bei einer Aufgabe scheitert, ist bis zum nächsten Morgen (morning_hour) erschöpft und nicht einsetzbar. species_reward: Belohnung für eine richtig beantwortete Artfrage (danach gilt die Art als bestimmt, ihr wissenschaftlicher Name erscheint im Bestimmungsbuch).",
   "currency": "Beeren",
   "start_credits": 40,
   "offers": 3,
@@ -19,6 +19,5 @@
     0.5
   ],
   "morning_hour": 6.0,
-  "bait_cost": 1,
   "species_reward": 10
 }

@@ -163,9 +163,6 @@ func _place(delta: float, direction: float, turn := true) -> void:
 		var bob := sin(elapsed * (5.0 + weak * 4.0)) * (0.03 + 0.07 * weak if _mode == "struggle" else 0.04 * weak)
 		y = maxf(ground, l.water_level_at(p.x, p.z) - submerge + bob)
 	p.y = y
-	var bait = params.get("bait")
-	if bait != null and is_instance_valid(bait) and Vector2(p.x - bait.global_position.x, p.z - bait.global_position.z).length() < 0.6:
-		bait.take(creature)
 	var dir := (_b - _a).normalized() * direction
 	creature.velocity = dir * _speed
 	creature.global_position = p

@@ -9,7 +9,8 @@ extends PanelContainer
 ## Drei Arten von Inhalt:
 ##   show_member()   Gruppenmitglied (Einschätzung, vermutete Art)
 ##   show_stranger() Fremder (Preis, Anheuern)
-##   show_pick()     Rollenwahl während der Aufgabenvorbereitung (Filter, „Als … wählen“)
+##   show_rival()    Kreatur einer Rivalen-Gruppe (nur ansehen)
+## Rollen wählt man in der Galerie (GalleryBar), nicht hier.
 ## Die Art wird im Spiel nicht angezeigt (nur im Debug-Modus).
 
 signal closed
@@ -18,29 +19,27 @@ signal hire_requested(offer: GroupMember)
 signal cycle_requested(direction: int)
 ## Höhe geändert (eingeklappt/ausgeklappt) – die Welt passt die Kamera an.
 signal layout_changed(expanded: bool)
-## Rollenwahl: Kreatur übernehmen bzw. Filter wechseln
-signal pick_confirmed
-signal filter_changed(filter: String)
 
 const RATING_COLORS := {0: Color(1.0, 0.55, 0.45), 1: Color(1.0, 0.85, 0.4), 2: Color(0.55, 1.0, 0.45)}
 ## Höhe als Anteil der Bildschirmhöhe
 const COMPACT := 0.3
 const EXPANDED := 0.52
-const PICK := 0.42
-const FILTER_LABELS := {"group": "Gruppe", "strangers": "Fremde", "near": "In der Nähe"}
 
 var journal: Journal
 var catalog: AbilityCatalog
 var member: GroupMember
 var debug_text := ""
 var expanded := false
-## "member" | "stranger" | "pick"
+## "member" | "stranger" | "rival"
 var mode := "member"
+
+## Fähigkeit der gerade gezeigten Probe: eingeklappt erscheinen Ergebnis und
+## Einschätzungs-Knöpfe direkt (ohne Aufklappen).
+var quick_ability := ""
 
 var _box: VBoxContainer
 var _stranger: GroupMember
 var _problem := ""
-var _pick: Dictionary = {}
 
 
 func _init() -> void:
@@ -72,8 +71,6 @@ func _apply_height() -> void:
 
 ## Anteil der Bildschirmhöhe, den die Leiste gerade einnimmt.
 func height_fraction() -> float:
-	if mode == "pick":
-		return PICK
 	return EXPANDED if expanded else COMPACT
 
 
@@ -83,6 +80,8 @@ func set_expanded(on: bool) -> void:
 
 
 func show_member(p_member: GroupMember, p_journal: Journal, p_catalog: AbilityCatalog, p_debug := "") -> void:
+	if p_member != member:
+		quick_ability = ""
 	mode = "member"
 	member = p_member
 	journal = p_journal
@@ -116,16 +115,10 @@ func show_rival(m: GroupMember, group_name: String, p_journal: Journal, p_debug 
 	refresh()
 
 
-## Rollenwahl. info: {"role": Rollenname, "member": GroupMember, "stranger": bool,
-## "rating": "Klettern: stark", "state": "fit"/"erschöpft"/…, "problem": "" oder Grund,
-## "action": Knopftext, "filter": aktueller Filter, "index": i, "count": n}
-func show_pick(info: Dictionary, p_journal: Journal, p_catalog: AbilityCatalog) -> void:
-	mode = "pick"
-	_pick = info
-	member = info.get("member")
-	journal = p_journal
-	catalog = p_catalog
-	visible = true
+## Nach einer Probe: Ergebnis und Einschätzung dieser Fähigkeit eingeklappt zeigen.
+func show_quick(ability: String) -> void:
+	quick_ability = ability
+	expanded = false
 	refresh()
 
 
@@ -138,8 +131,6 @@ func _rebuild() -> void:
 	_apply_height()
 	layout_changed.emit(expanded)
 	match mode:
-		"pick":
-			_build_pick()
 		"stranger":
 			_build_stranger()
 		"rival":
@@ -167,8 +158,7 @@ func _head(title: String, subtitle: String, close_text := "✕") -> HBoxContaine
 	head.add_child(sub)
 	head.add_child(UiUtil.button("‹", func(): cycle_requested.emit(-1), Vector2(52, 44)))
 	head.add_child(UiUtil.button("›", func(): cycle_requested.emit(1), Vector2(52, 44)))
-	if mode != "pick":
-		head.add_child(UiUtil.button("▼" if expanded else "▲", func(): set_expanded(not expanded), Vector2(52, 44)))
+	head.add_child(UiUtil.button("▼" if expanded else "▲", func(): set_expanded(not expanded), Vector2(52, 44)))
 	head.add_child(UiUtil.button(close_text, func(): visible = false; closed.emit(), Vector2(52 if close_text == "✕" else 130, 44)))
 	return head
 
@@ -201,6 +191,15 @@ func _build_member() -> void:
 		var summary := UiUtil.label(_rating_summary(), 15, Color(0.8, 0.95, 0.6))
 		summary.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(summary)
+		var probes := _probe_summary()
+		if quick_ability != "":
+			var quick := GridContainer.new()
+			quick.columns = 6
+			_box.add_child(quick)
+			_rating_row(quick, quick_ability)
+			quick.add_child(UiUtil.caption("← deine Einschätzung", 0, 13, Color(1, 1, 1, 0.6)))
+		elif probes != "":
+			_box.add_child(UiUtil.label(probes, 14, Color(0.75, 0.9, 1.0)))
 		return
 	# ausgeklappt: Einschätzung in zwei Spalten, daneben Beobachtungen
 	var body := HBoxContainer.new()
@@ -226,8 +225,19 @@ func _rating_summary() -> String:
 	return "Einschätzung: " + (", ".join(parts) if not parts.is_empty() else "noch keine – ▲ öffnen")
 
 
+## "Proben: Klettern ●●○ · Graben ○○○" oder "".
+func _probe_summary() -> String:
+	var parts := []
+	for id in catalog.order:
+		var g := journal.probe(member.id, id)
+		if g >= 0:
+			parts.append("%s %s" % [catalog.name_of(id), Journal.grade_dots(g)])
+	return "Proben: " + " · ".join(parts) if not parts.is_empty() else ""
+
+
 func _rating_row(grid: GridContainer, id: String) -> void:
-	grid.add_child(UiUtil.caption(catalog.name_of(id), 100, 14))
+	var g := journal.probe(member.id, id)
+	grid.add_child(UiUtil.caption(catalog.name_of(id) + ("  " + Journal.grade_dots(g) if g >= 0 else ""), 140, 14))
 	var r := journal.rating(member.id, id)
 	for v in [0, 1, 2]:
 		var b := UiUtil.button(["–", "o", "+"][v], _set_rating.bind(id, v if r != v else -1), Vector2(40, 38))
@@ -249,7 +259,7 @@ func _observations(parent: Control, id: String) -> void:
 	parent.add_child(UiUtil.label("Zuletzt beobachtet", 15, Color(0.8, 0.95, 0.6)))
 	var entries := journal.entries_for(id, 4)
 	if entries.is_empty():
-		parent.add_child(UiUtil.label("noch nichts – eine Weile zuschauen oder einen Köder legen", 13, Color(1, 1, 1, 0.6)))
+		parent.add_child(UiUtil.label("noch nichts – eine Weile zuschauen oder eine Probe machen", 13, Color(1, 1, 1, 0.6)))
 	for e in entries:
 		parent.add_child(UiUtil.label("%s  %s" % [e.time, e.text], 13))
 
@@ -272,39 +282,6 @@ func _build_stranger() -> void:
 		row.add_child(UiUtil.caption(_problem, 0, 13, Color(1, 0.7, 0.5)))
 	if expanded:
 		_observations(_box, o.id)
-
-
-# --- Rollenwahl -------------------------------------------------------------------
-
-func _build_pick() -> void:
-	var m: GroupMember = _pick.get("member")
-	var title := "Wähle: %s" % _pick.get("role", "")
-	_head(title, "%d / %d" % [int(_pick.get("index", 0)) + 1, int(_pick.get("count", 0))] if m != null else "", "Abbrechen")
-	var filters := HBoxContainer.new()
-	filters.add_theme_constant_override("separation", 6)
-	_box.add_child(filters)
-	for f in FILTER_LABELS:
-		var b := UiUtil.button(FILTER_LABELS[f], func(): filter_changed.emit(f), Vector2(120, 40))
-		b.toggle_mode = true
-		b.button_pressed = _pick.get("filter", "group") == f
-		filters.add_child(b)
-	if m == null:
-		_box.add_child(UiUtil.label("Hier ist gerade niemand – anderen Filter wählen.", 15, Color(1, 1, 1, 0.7)))
-		return
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 12)
-	_box.add_child(row)
-	var who := VBoxContainer.new()
-	who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(who)
-	who.add_child(UiUtil.caption("%s  %s" % [m.name, _info(m)], 0, 20))
-	who.add_child(UiUtil.caption(str(_pick.get("rating", "")), 0, 15, Color(0.8, 0.95, 0.6)))
-	var problem := str(_pick.get("problem", ""))
-	if problem != "":
-		who.add_child(UiUtil.caption(problem, 0, 13, Color(1, 0.7, 0.5)))
-	var ok := UiUtil.button(str(_pick.get("action", "Wählen")), func(): pick_confirmed.emit(), Vector2(240, 52))
-	ok.disabled = problem != ""
-	row.add_child(ok)
 
 
 func _set_rating(ability: String, value: int) -> void:
